@@ -1,10 +1,22 @@
-﻿<Application x:Class="FileChecker.App"
+﻿<!--
+    应用程序级 XAML 定义（FileChecker 的入口配置）。
+
+    启动行为：
+      - StartupUri="MainWindow.xaml"：无命令行参数时启动主窗口。
+      - 若通过命令行传入了文件/文件夹路径，App.xaml.cs 的 OnStartup 会
+        拦截启动流程并进入静默处理模式（不加载主窗口）。
+      - ShutdownMode="OnLastWindowClose"：所有窗口关闭后应用自动退出。
+
+    说明：当前不定义全局共享资源（Application.Resources 为空），
+    界面样式资源均定义在 MainWindow.xaml 的 Window.Resources 中。
+-->
+<Application x:Class="FileChecker.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:FileChecker"
              StartupUri="MainWindow.xaml"
              ShutdownMode="OnLastWindowClose">
     <Application.Resources>
-         
+        <!-- 预留：如需全局样式/画笔/转换器，可在此统一注册 -->
     </Application.Resources>
 </Application>

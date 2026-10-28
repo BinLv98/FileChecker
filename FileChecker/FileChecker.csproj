@@ -1,11 +1,27 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<!--
+    FileChecker 项目文件（SDK 风格，基于 Microsoft.NET.Sdk）。
+
+    说明：
+      - 目标框架 net48（.NET Framework 4.8，随 Windows 系统自带，无需安装运行时）。
+      - UseWPF=true：启用 WPF（窗口/控件/数据绑定）。
+      - UseWindowsForms=true：启用 Windows Forms 引用（文件夹选择对话框 FolderBrowserDialog）。
+      - LangVersion=10.0：允许使用较新的 C# 语法（如 target-typed new、switch 表达式等）。
+      - ApplicationIcon：应用程序图标（Resources\FileChecker.ico）。
+-->
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- 输出为 Windows 可执行程序（无控制台窗口的 GUI 程序） -->
     <OutputType>WinExe</OutputType>
+    <!-- 目标框架：.NET Framework 4.8 -->
     <TargetFramework>net48</TargetFramework>
+    <!-- 启用 WPF 支持 -->
     <UseWPF>true</UseWPF>
+    <!-- 启用 Windows Forms 支持（FolderBrowserDialog 等） -->
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- 使用 C# 10 语言特性 -->
     <LangVersion>10.0</LangVersion>
+    <!-- 应用程序图标 -->
     <ApplicationIcon>Resources\FileChecker.ico</ApplicationIcon>
   </PropertyGroup>
 
