@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace FileChecker.Data
 {
@@ -41,22 +42,7 @@ namespace FileChecker.Data
         public bool ZoneHasExtraData { get; set; }
 
         /// <summary>命名（非主）数据流的数量，即附加数据流总数（含 Zone.Identifier 本身）。</summary>
-        public int NamedStreamCount
-        {
-            get
-            {
-                // 遍历所有流，统计不是主数据流的个数
-                var num = 0;
-                foreach (var stream in Streams)
-                {
-                    if (!stream.IsMainData)
-                    {
-                        num++;
-                    }
-                }
-                return num;
-            }
-        }
+        public int NamedStreamCount => Streams.Count(s => !s.IsMainData);
 
         /// <summary>除 Zone.Identifier 以外的其他命名流数量（额外的附加数据条数）。</summary>
         public int OtherNamedCount => NamedStreamCount - (HasZone ? 1 : 0);
@@ -138,6 +124,7 @@ namespace FileChecker.Data
             {
                 return Localization.F("item.errPrefix", string.IsNullOrEmpty(Error) ? Localization.T("item.unknown") : Error);
             }
+
             var zoneLabel = ZoneLabel;
             if (zoneLabel != null)
             {
@@ -149,15 +136,18 @@ namespace FileChecker.Data
                 }
                 return text;
             }
+
             // 有 Zone 但识别不出含义 / 有其他附加流 / 完全干净，三种情况分别说明
             if (HasZone)
             {
                 return Localization.T("info.unknownZone");
             }
+
             if (NamedStreamCount > 0)
             {
                 return Localization.T("info.otherAds");
             }
+
             return Localization.T("info.clean");
         }
 
@@ -174,11 +164,13 @@ namespace FileChecker.Data
             {
                 return (len / 1048576.0).ToString("0.##") + Localization.T("fmt.mb");
             }
+
             // 1 KB ~ 1 MB 之间按 KB 显示
             if (len >= 1024)
             {
                 return (len / 1024.0).ToString("0.##") + Localization.T("fmt.kb");
             }
+
             // 不足 1 KB 按字节显示
             return len + Localization.T("fmt.bytes");
         }

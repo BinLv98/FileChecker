@@ -94,17 +94,7 @@ namespace FileChecker
         /// 窗口是否处于忙碌状态（正在去除标记或正在计算哈希）。
         /// <para>忙碌时禁止添加/移除/重扫/计算等操作，防止并发修改列表。</para>
         /// </summary>
-        private bool Busy
-        {
-            get
-            {
-                if (!_running)
-                {
-                    return _hashing;
-                }
-                return true;
-            }
-        }
+        private bool Busy => _running || _hashing;
 
         /// <summary>
         /// 构造函数：初始化界面组件、事件与初始状态。
@@ -175,28 +165,28 @@ namespace FileChecker
                     gridView.Columns[4].Header = Localization.T("col.md5");
                 }
                 // 右键菜单项文案（顺序与 XAML 中 MenuItem 顺序一致）
-                var array = new[] { "menu.removeMark", "menu.detail", "menu.rescan", "menu.openFolder", "menu.copyPath", "menu.copySha", "menu.copyMd5", "menu.copyBoth", "menu.remove", "menu.clear" };
-                var num = 0;
+                var menuKeys = new[] { "menu.removeMark", "menu.detail", "menu.rescan", "menu.openFolder", "menu.copyPath", "menu.copySha", "menu.copyMd5", "menu.copyBoth", "menu.remove", "menu.clear" };
+                var menuIndex = 0;
                 if (FileList.ContextMenu != null)
                 {
                     foreach (var item in FileList.ContextMenu.Items)
                     {
                         if (item is System.Windows.Controls.MenuItem menuItem)
                         {
-                            if (num < array.Length)
+                            if (menuIndex < menuKeys.Length)
                             {
-                                menuItem.Header = Localization.T(array[num]);
+                                menuItem.Header = Localization.T(menuKeys[menuIndex]);
                             }
-                            num++;
+                            menuIndex++;
                         }
                     }
                 }
                 // 空列表提示与各文件项的本地化属性
                 EmptyTitle.Text = Localization.T("empty.title");
                 EmptySub.Text = Localization.T("empty.sub");
-                foreach (var item2 in _items)
+                foreach (var fileItem in _items)
                 {
-                    item2.NotifyLanguageChanged();
+                    fileItem.NotifyLanguageChanged();
                 }
                 // 摘要栏按当前语言重新渲染
                 if (_summaryRender != null)
@@ -226,9 +216,9 @@ namespace FileChecker
         /// </summary>
         private void Window_DragOver(object sender, System.Windows.DragEventArgs e)
         {
-            var flag = !Busy && e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop);
-            e.Effects = flag ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
-            DropBorder.Background = flag ? _dropHotBrush : _dropNormalBrush;
+            var canDrop = !Busy && e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop);
+            e.Effects = canDrop ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+            DropBorder.Background = canDrop ? _dropHotBrush : _dropNormalBrush;
             e.Handled = true;
         }
 
@@ -246,9 +236,9 @@ namespace FileChecker
             DropBorder.Background = _dropNormalBrush;
             if (!Busy && e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
             {
-                if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] array && array.Length != 0)
+                if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] paths && paths.Length != 0)
                 {
-                    AddPaths(array);
+                    AddPaths(paths);
                 }
                 e.Handled = true;
             }
@@ -307,9 +297,9 @@ namespace FileChecker
             {
                 return;
             }
-            var list = new List<string>();
+            var paths = new List<string>();
             // 是否递归处理子文件夹（对应界面勾选框）
-            var valueOrDefault = RecursiveCheck.IsChecked == true;
+            var recursive = RecursiveCheck.IsChecked == true;
             var skipped = 0;
             var dirErrors = 0;
             foreach (var rawPath in rawPaths)
@@ -326,13 +316,13 @@ namespace FileChecker
                     {
                         // 目录：递归展开（无权限子目录计入 dirErrors）
                         var inaccessible = 0;
-                        list.AddRange(AdsCleaner.ExpandPath(rawPath, valueOrDefault, ref inaccessible));
+                        paths.AddRange(AdsCleaner.ExpandPath(rawPath, recursive, ref inaccessible));
                         dirErrors += inaccessible;
                     }
                     else if (File.Exists(rawPath))
                     {
                         // 文件：直接加入
-                        list.Add(rawPath);
+                        paths.Add(rawPath);
                     }
                     else
                     {
@@ -348,15 +338,15 @@ namespace FileChecker
             }
             var added = 0;
             // 去重后加入列表，并排队自动扫描
-            foreach (var item in list)
+            foreach (var path in paths)
             {
-                if (!_map.ContainsKey(item))
+                if (!_map.ContainsKey(path))
                 {
-                    var fileItem = new FileItem(item);
-                    _items.Add(fileItem);
-                    _map[item] = fileItem;
+                    var item = new FileItem(path);
+                    _items.Add(item);
+                    _map[path] = item;
                     added++;
-                    _adsQueue.Enqueue(fileItem);
+                    _adsQueue.Enqueue(item);
                 }
             }
             RefreshEmptyHint();
@@ -364,16 +354,16 @@ namespace FileChecker
             // 摘要显示本次添加结果
             SetSummaryFunc(() =>
             {
-                var text = added > 0 ? Localization.F("msg.added", added) : Localization.T("msg.noNew");
+                var summary = added > 0 ? Localization.F("msg.added", added) : Localization.T("msg.noNew");
                 if (skipped > 0)
                 {
-                    text += Localization.F("msg.ignoreInvalid", skipped);
+                    summary += Localization.F("msg.ignoreInvalid", skipped);
                 }
                 if (dirErrors > 0)
                 {
-                    text += Localization.F("msg.ignoreDirs", dirErrors);
+                    summary += Localization.F("msg.ignoreDirs", dirErrors);
                 }
-                return text;
+                return summary;
             });
             CountText.Text = _items.Count + " / " + _items.Count;
         }
@@ -383,10 +373,10 @@ namespace FileChecker
         {
             if (!Busy)
             {
-                var list = FileList.SelectedItems.Cast<FileItem>().ToList();
-                if (list.Count != 0)
+                var selected = FileList.SelectedItems.Cast<FileItem>().ToList();
+                if (selected.Count != 0)
                 {
-                    RemoveItems(list);
+                    RemoveItems(selected);
                 }
             }
         }
@@ -436,14 +426,14 @@ namespace FileChecker
         {
             if (!Busy)
             {
-                var list = FileList.SelectedItems.Cast<FileItem>().ToList();
-                if (list.Count == 0)
+                var selected = FileList.SelectedItems.Cast<FileItem>().ToList();
+                if (selected.Count == 0)
                 {
                     SetSummary("msg.selFirst");
                 }
                 else
                 {
-                    StartRemoveJob(list);
+                    StartRemoveJob(selected);
                 }
             }
         }
@@ -464,8 +454,8 @@ namespace FileChecker
                 return;
             }
             // 去重（按引用去重即可）并过滤空项
-            var list = targets.Where(t => t != null).Distinct().ToList();
-            if (list.Count == 0)
+            var jobTargets = targets.Where(t => t != null).Distinct().ToList();
+            if (jobTargets.Count == 0)
             {
                 return;
             }
@@ -481,17 +471,17 @@ namespace FileChecker
             _fatal = null;
             _finished = 0L;
             _running = true;
-            _jobTargets = list;
+            _jobTargets = jobTargets;
             // 每个目标项先标记为"处理中"
-            foreach (var item in list)
+            foreach (var item in jobTargets)
             {
                 item.MarkProcessing();
             }
             // 进度条与计数复位
-            Progress.Maximum = list.Count;
+            Progress.Maximum = jobTargets.Count;
             Progress.Value = 0.0;
-            CountText.Text = "0 / " + list.Count;
-            SetSummary("msg.removing", list.Count);
+            CountText.Text = "0 / " + jobTargets.Count;
+            SetSummary("msg.removing", jobTargets.Count);
             UpdateBusyUi(busy: true);
             var token = _cts.Token;
             // 启动排空定时器：周期把完成报告应用到界面
@@ -501,7 +491,7 @@ namespace FileChecker
             };
             _drainTimer.Tick += DrainTick;
             _drainTimer.Start();
-            var paths = list.Select(i => i.Path).ToList();
+            var paths = jobTargets.Select(i => i.Path).ToList();
             // 后台线程执行批量处理；每完成一个文件立即回调投递报告
             Task.Run(() =>
             {
@@ -518,10 +508,10 @@ namespace FileChecker
                     // 用户取消
                     _runCancelled = true;
                 }
-                catch (Exception ex2)
+                catch (Exception ex)
                 {
                     // 其他致命异常：记录供 UI 展示
-                    _fatal = ex2.Message;
+                    _fatal = ex.Message;
                 }
                 finally
                 {
@@ -557,21 +547,21 @@ namespace FileChecker
         private void DrainTick(object sender, EventArgs e)
         {
             // 单次最多消费 5000 条，防止一次排空阻塞 UI
-            var num = 0;
-            while (num++ < 5000 && _queue.TryDequeue(out var result))
+            var batchCount = 0;
+            while (batchCount++ < 5000 && _queue.TryDequeue(out var report))
             {
-                if (_map.TryGetValue(result.Path, out var value))
+                if (_map.TryGetValue(report.Path, out var item))
                 {
-                    value.Complete(result.Result, result.Error);
+                    item.Complete(report.Result, report.Error);
                 }
             }
             // 进度条按原子计数刷新（不超过上限）
-            var num2 = Interlocked.Read(ref _finished);
-            if (num2 <= Progress.Maximum)
+            var finished = Interlocked.Read(ref _finished);
+            if (finished <= Progress.Maximum)
             {
-                Progress.Value = num2;
+                Progress.Value = finished;
             }
-            CountText.Text = num2 + " / " + Progress.Maximum;
+            CountText.Text = finished + " / " + Progress.Maximum;
             // 后台任务结束且队列已清空 → 收尾
             if (_runDone && _queue.IsEmpty)
             {
@@ -592,11 +582,11 @@ namespace FileChecker
             }
 
             // 处理队列中可能残留的报告
-            while (_queue.TryDequeue(out var result))
+            while (_queue.TryDequeue(out var report))
             {
-                if (_map.TryGetValue(result.Path, out var value))
+                if (_map.TryGetValue(report.Path, out var item))
                 {
-                    value.Complete(result.Result, result.Error);
+                    item.Complete(report.Result, report.Error);
                 }
             }
             // 仍处于 Processing 的项（未处理完，如取消）复位为 Pending
@@ -619,17 +609,17 @@ namespace FileChecker
             var failed = 0;
             if (jobTargets != null)
             {
-                foreach (var item2 in jobTargets)
+                foreach (var item in jobTargets)
                 {
-                    if (item2.Status == ItemStatus.Removed)
+                    if (item.Status == ItemStatus.Removed)
                     {
                         removed++;
                     }
-                    else if (item2.Status == ItemStatus.Clean)
+                    else if (item.Status == ItemStatus.Clean)
                     {
                         clean++;
                     }
-                    else if (item2.Status == ItemStatus.Failed)
+                    else if (item.Status == ItemStatus.Failed)
                     {
                         failed++;
                     }
@@ -685,45 +675,44 @@ namespace FileChecker
                 return;
             }
             // 批量取出待扫描文件（单批最多 128 个）
-            var list = new List<FileItem>();
-            while (list.Count < 128 && _adsQueue.TryDequeue(out var result))
+            var batch = new List<FileItem>();
+            while (batch.Count < 128 && _adsQueue.TryDequeue(out var item))
             {
-                list.Add(result);
+                batch.Add(item);
             }
-            if (list.Count == 0)
+            if (batch.Count == 0)
             {
                 return;
             }
             _adsBusy = true;
-            var snapshot = list.ToArray();
+            var snapshot = batch.ToArray();
             Task.Run(() =>
             {
                 var results = new List<KeyValuePair<FileItem, AdsScanResult>>(snapshot.Length);
                 // 逐文件扫描，单个文件失败也不影响其余文件
-                var array = snapshot;
-                foreach (var fileItem in array)
+                foreach (var fileItem in snapshot)
                 {
-                    AdsScanResult value;
+                    AdsScanResult scanResult;
                     try
                     {
-                        value = AdsCleaner.Scan(fileItem.Path);
+                        scanResult = AdsCleaner.Scan(fileItem.Path);
                     }
                     catch (Exception ex)
                     {
                         // 扫描异常：包装为带错误信息的结果
-                        value = new AdsScanResult
+                        scanResult = new AdsScanResult
                         {
                             Error = ex.Message
                         };
                     }
-                    results.Add(new KeyValuePair<FileItem, AdsScanResult>(fileItem, value));
+                    results.Add(new KeyValuePair<FileItem, AdsScanResult>(fileItem, scanResult));
                 }
                 // 结果编组回 UI 线程更新文件项
                 Dispatcher.BeginInvoke((Action)(() =>
                 {
-                    foreach (var item in results)
+                    foreach (var entry in results)
                     {
-                        item.Key.SetAds(item.Value);
+                        entry.Key.SetAds(entry.Value);
                     }
                 }), DispatcherPriority.Background);
             }).ContinueWith(_ => _adsBusy = false, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
@@ -734,11 +723,11 @@ namespace FileChecker
         {
             if (!Busy)
             {
-                var list = FileList.SelectedItems.Cast<FileItem>().ToList();
-                if (list.Count > 0)
+                var selected = FileList.SelectedItems.Cast<FileItem>().ToList();
+                if (selected.Count > 0)
                 {
-                    RequestAdsScan(list);
-                    SetSummary("msg.rescanSel", list.Count);
+                    RequestAdsScan(selected);
+                    SetSummary("msg.rescanSel", selected.Count);
                 }
                 else
                 {
@@ -762,11 +751,11 @@ namespace FileChecker
         /// </summary>
         private int GetHashThreads()
         {
-            if (!(HashThreadCombo.SelectedItem is int num) || num < 1 || num > 10)
+            if (HashThreadCombo.SelectedItem is not int threads || threads < 1 || threads > 10)
             {
                 return 5;
             }
-            return num;
+            return threads;
         }
 
         /// <summary>
@@ -807,49 +796,46 @@ namespace FileChecker
                         MaxDegreeOfParallelism = Math.Max(1, degree)
                     };
                     // 并行遍历计算
-                    Parallel.ForEach(files, parallelOptions, it =>
+                    Parallel.ForEach(files, parallelOptions, item =>
                     {
                         // 进度上报器（带节流：最多每 90ms 上报一次）
-                        var reportProgress = CreateHashReporter(it, disp);
-                        var fileHashResult = FileHasher.Compute(it.Path, token, reportProgress);
+                        var reportProgress = CreateHashReporter(item, disp);
+                        var hashResult = FileHasher.Compute(item.Path, token, reportProgress);
                         // 未被取消时才处理结果
-                        if (!fileHashResult.Cancelled)
+                        if (!hashResult.Cancelled)
                         {
-                            TxtHashCompareResult txtHashCompareResult = null;
+                            TxtHashCompareResult compare = null;
                             // 计算成功时尝试读取参照 txt 并比对
-                            if (fileHashResult.Ok)
+                            if (hashResult.Ok)
                             {
                                 try
                                 {
-                                    txtHashCompareResult = HashTxtReader.Compare(it.Path, fileHashResult.MD5, fileHashResult.SHA256);
+                                    compare = HashTxtReader.Compare(item.Path, hashResult.MD5, hashResult.SHA256);
                                 }
                                 catch
                                 {
                                     // 参照 txt 解析失败不影响主结果
-                                    txtHashCompareResult = null;
+                                    compare = null;
                                 }
                             }
-                            var r = fileHashResult;
-                            var c = txtHashCompareResult;
                             // 结果编组回 UI 线程应用到文件项并推进进度
                             disp.BeginInvoke((Action)(() =>
                             {
-                                it.ResetHashProgress();
-                                if (r.Ok)
+                                item.ResetHashProgress();
+                                if (hashResult.Ok)
                                 {
-                                    it.SetHashResult(r.MD5, r.SHA256);
-                                    if (c != null)
+                                    item.SetHashResult(hashResult.MD5, hashResult.SHA256);
+                                    if (compare != null)
                                     {
-                                        it.SetTxtComparison(c);
+                                        item.SetTxtComparison(compare);
                                     }
                                 }
                                 else
                                 {
-                                    it.SetHashError(r.Error);
+                                    item.SetHashError(hashResult.Error);
                                 }
                                 // completed 只在 UI 线程递增，避免竞态
-                                var num = completed;
-                                completed = num + 1;
+                                completed++;
                                 Progress.Value = Math.Min(Progress.Maximum, completed);
                                 CountText.Text = completed + " / " + total;
                             }), DispatcherPriority.Background);
@@ -883,12 +869,12 @@ namespace FileChecker
             return f =>
             {
                 // 换算为整数百分比
-                var num = f >= 1.0 ? 100 : !(f <= 0.0) ? (int)Math.Floor(f * 100.0) : 0;
+                var pct = f >= 1.0 ? 100 : f <= 0.0 ? 0 : (int)Math.Floor(f * 100.0);
                 // 节流：百分比变化且（到达 100% 或距上次超过 90ms）
-                if (num > lastPct && (num >= 100 || sw.ElapsedMilliseconds >= 90))
+                if (pct > lastPct && (pct >= 100 || sw.ElapsedMilliseconds >= 90))
                 {
-                    lastPct = num;
-                    var v = num;
+                    lastPct = pct;
+                    var v = pct;
                     disp.BeginInvoke((Action)(() =>
                     {
                         // 仅当仍处于计算阶段时更新（防止结果已写入后误刷）
@@ -922,34 +908,34 @@ namespace FileChecker
                 }
             }
             // 统计成功与失败数
-            var num = 0;
-            var num2 = 0;
-            foreach (var item2 in _items)
+            var doneCount = 0;
+            var failedCount = 0;
+            foreach (var item in _items)
             {
-                if (item2.HashStage == HashStage.Done)
+                if (item.HashStage == HashStage.Done)
                 {
-                    num++;
+                    doneCount++;
                 }
-                else if (item2.HashStage == HashStage.Failed)
+                else if (item.HashStage == HashStage.Failed)
                 {
-                    num2++;
+                    failedCount++;
                 }
             }
-            var num3 = num + num2;
-            Progress.Value = num3;
-            CountText.Text = num3 + " / " + (int)Progress.Maximum;
+            var finishedCount = doneCount + failedCount;
+            Progress.Value = finishedCount;
+            CountText.Text = finishedCount + " / " + (int)Progress.Maximum;
             // 摘要分三种情况：全取消 / 有失败 / 全成功
-            if (num == 0 && num2 == 0)
+            if (doneCount == 0 && failedCount == 0)
             {
                 SetSummary("msg.hashCancelled");
             }
-            else if (num2 > 0)
+            else if (failedCount > 0)
             {
-                SetSummary("msg.hashDoneFail", num, num2);
+                SetSummary("msg.hashDoneFail", doneCount, failedCount);
             }
             else
             {
-                SetSummary("msg.hashDoneAll", num);
+                SetSummary("msg.hashDoneAll", doneCount);
             }
             UpdateBusyUi(busy: false);
         }
@@ -959,34 +945,34 @@ namespace FileChecker
         /// </summary>
         private void CopyHash_Click(object sender, RoutedEventArgs e)
         {
-            var text = (sender as FrameworkElement)?.Tag as string;
-            var fileItem = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
-            if (fileItem == null || text == null)
+            var mode = (sender as FrameworkElement)?.Tag as string;
+            var item = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
+            if (item == null || mode == null)
             {
                 return;
             }
-            var md5Raw = fileItem.Md5Raw;
-            var sha256Raw = fileItem.Sha256Raw;
-            string text2 = null;
+            var md5Raw = item.Md5Raw;
+            var sha256Raw = item.Sha256Raw;
+            string copyText = null;
             // 单值复制
-            if (text != "both")
+            if (mode != "both")
             {
-                text2 = text != "md5" ? sha256Raw : md5Raw;
+                copyText = mode != "md5" ? sha256Raw : md5Raw;
             }
             // 双值复制（本地化格式 "MD5: ...\nSHA256: ..."）
             else if (md5Raw != null && sha256Raw != null)
             {
-                text2 = Localization.F("item.md5Copy", md5Raw, Environment.NewLine, sha256Raw);
+                copyText = Localization.F("item.md5Copy", md5Raw, Environment.NewLine, sha256Raw);
             }
             // 还没有校验码：提示用户先计算
-            if (text2 == null)
+            if (copyText == null)
             {
                 SetSummary("msg.noHashYet");
                 return;
             }
             try
             {
-                System.Windows.Clipboard.SetText(text2);
+                System.Windows.Clipboard.SetText(copyText);
             }
             catch
             {
@@ -998,14 +984,14 @@ namespace FileChecker
         /// <summary>右键“查看文件标记详情”：以模态方式打开详情窗口。</summary>
         private void ShowDetail_Click(object sender, RoutedEventArgs e)
         {
-            var fileItem = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
-            if (fileItem != null)
+            var item = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
+            if (item != null)
             {
-                var streamDetailWindow = new StreamDetailWindow(fileItem)
+                var detailWindow = new StreamDetailWindow(item)
                 {
                     Owner = this
                 };
-                streamDetailWindow.ShowDialog();
+                detailWindow.ShowDialog();
             }
         }
 
@@ -1014,14 +1000,14 @@ namespace FileChecker
         {
             if (!Busy)
             {
-                var fileItem = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
-                if (fileItem != null)
+                var item = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
+                if (item != null)
                 {
-                    var streamDetailWindow = new StreamDetailWindow(fileItem)
+                    var detailWindow = new StreamDetailWindow(item)
                     {
                         Owner = this
                     };
-                    streamDetailWindow.ShowDialog();
+                    detailWindow.ShowDialog();
                 }
             }
         }
@@ -1071,15 +1057,15 @@ namespace FileChecker
         /// <summary>根据列表是否为空切换"空列表提示"的可见性。</summary>
         private void RefreshEmptyHint()
         {
-            var flag = _items.Count == 0;
-            EmptyHint.Visibility = !flag ? Visibility.Collapsed : Visibility.Visible;
+            var isEmpty = _items.Count == 0;
+            EmptyHint.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
         }
 
         /// <summary>设置摘要栏为"固定文案 + 参数"（语言切换后重新渲染）。</summary>
         private void SetSummary(string key, params object[] args)
         {
-            var a = args ?? Array.Empty<object>();
-            _summaryRender = () => Localization.F(key, a);
+            var fixedArgs = args ?? Array.Empty<object>();
+            _summaryRender = () => Localization.F(key, fixedArgs);
             SummaryText.Text = _summaryRender();
         }
 
@@ -1100,14 +1086,14 @@ namespace FileChecker
         /// <summary>右键“打开所在目录”：用资源管理器选中该文件。</summary>
         private void OpenFolder_Click(object sender, RoutedEventArgs e)
         {
-            var fileItem = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
-            if (fileItem == null)
+            var item = FileList.SelectedItems.Cast<FileItem>().FirstOrDefault();
+            if (item == null)
             {
                 return;
             }
             try
             {
-                Process.Start("explorer.exe", "/select,\"" + fileItem.Path + "\"");
+                Process.Start("explorer.exe", "/select,\"" + item.Path + "\"");
             }
             catch
             {
@@ -1119,10 +1105,10 @@ namespace FileChecker
         /// <summary>右键“复制完整路径”：把选中文件的路径按行复制到剪贴板。</summary>
         private void CopyPath_Click(object sender, RoutedEventArgs e)
         {
-            var list = FileList.SelectedItems.Cast<FileItem>().ToList();
-            if (list.Count != 0)
+            var selected = FileList.SelectedItems.Cast<FileItem>().ToList();
+            if (selected.Count != 0)
             {
-                System.Windows.Clipboard.SetText(string.Join(Environment.NewLine, list.Select(i => i.Path)));
+                System.Windows.Clipboard.SetText(string.Join(Environment.NewLine, selected.Select(i => i.Path)));
             }
         }
 
@@ -1136,9 +1122,9 @@ namespace FileChecker
             {
                 return;
             }
-            var messageBoxText = _running ? Localization.T("msg.closeRemove") : Localization.T("msg.closeHash");
+            var message = _running ? Localization.T("msg.closeRemove") : Localization.T("msg.closeHash");
             // 用户选择"否"：取消关闭
-            if (System.Windows.MessageBox.Show(this, messageBoxText, "FileChecker", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (System.Windows.MessageBox.Show(this, message, "FileChecker", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
                 e.Cancel = true;
                 return;

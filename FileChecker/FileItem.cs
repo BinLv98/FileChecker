@@ -107,27 +107,13 @@ namespace FileChecker
         /// <para>已移除 → “已移除网络标记”；无标记 → “未检测到网络标记”；
         /// 失败 → 优先显示具体错误，否则显示“无法移除该标记”；其余状态为 null。</para>
         /// </summary>
-        public string Message
+        public string Message => _status switch
         {
-            get
-            {
-                switch (_status)
-                {
-                    case ItemStatus.Removed:
-                        return Localization.T("item.removed");
-                    case ItemStatus.Clean:
-                        return Localization.T("item.noMark");
-                    case ItemStatus.Failed:
-                        if (!string.IsNullOrWhiteSpace(_removeError))
-                        {
-                            return _removeError;
-                        }
-                        return Localization.T("item.cannotRemove");
-                    default:
-                        return null;
-                }
-            }
-        }
+            ItemStatus.Removed => Localization.T("item.removed"),
+            ItemStatus.Clean => Localization.T("item.noMark"),
+            ItemStatus.Failed => string.IsNullOrWhiteSpace(_removeError) ? Localization.T("item.cannotRemove") : _removeError,
+            _ => null,
+        };
 
         /// <summary>该文件的附加数据流扫描结果（null = 尚未扫描）。</summary>
         public AdsScanResult AdsResult => _adsResult;
@@ -166,11 +152,7 @@ namespace FileChecker
                 {
                     return _zoneBrush;
                 }
-                if (_adsResult.NamedStreamCount <= 0)
-                {
-                    return _cleanBrush;
-                }
-                return _otherStreamBrush;
+                return _adsResult.NamedStreamCount <= 0 ? _cleanBrush : _otherStreamBrush;
             }
         }
 
@@ -195,51 +177,51 @@ namespace FileChecker
             get
             {
                 // 第一行始终是文件完整路径
-                var list = new List<string> { Path };
+                var lines = new List<string> { Path };
                 // 附加数据流信息
                 if (_adsResult != null)
                 {
                     var adsText = AdsText;
                     if (!string.IsNullOrEmpty(adsText) && adsText != Localization.T("item.reading"))
                     {
-                        list.Add(Localization.T("tip.mark") + adsText);
+                        lines.Add(Localization.T("tip.mark") + adsText);
                     }
                     if (!string.IsNullOrEmpty(AdsDetail))
                     {
-                        list.Add(AdsDetail);
+                        lines.Add(AdsDetail);
                     }
                 }
                 // 去除标记的处理结果
                 var message = Message;
                 if (!string.IsNullOrEmpty(message))
                 {
-                    list.Add(Localization.T("tip.result") + message);
+                    lines.Add(Localization.T("tip.result") + message);
                 }
                 // 哈希计算完成：展示校验码与参照比对结论
                 if (_hashStage == HashStage.Done)
                 {
-                    list.Add("MD5: " + _md5Raw);
-                    list.Add("SHA256: " + _sha256Raw);
+                    lines.Add("MD5: " + _md5Raw);
+                    lines.Add("SHA256: " + _sha256Raw);
                     if (_txtCompare is { FoundTxt: true })
                     {
-                        list.Add(Localization.T("tip.refTxt") + _txtCompare.TxtPath);
+                        lines.Add(Localization.T("tip.refTxt") + _txtCompare.TxtPath);
                         if (_txtCompare.ReadFailed)
                         {
-                            list.Add(Localization.T("tip.refTxtFail"));
+                            lines.Add(Localization.T("tip.refTxtFail"));
                         }
                         else
                         {
-                            list.Add(Localization.T("tip.md5Cmp") + DescribeState(_txtCompare.MD5State, _txtCompare.MD5Ref, "MD5"));
-                            list.Add(Localization.T("tip.shaCmp") + DescribeState(_txtCompare.SHA256State, _txtCompare.SHA256Ref, "SHA256"));
+                            lines.Add(Localization.T("tip.md5Cmp") + DescribeState(_txtCompare.MD5State, _txtCompare.MD5Ref, "MD5"));
+                            lines.Add(Localization.T("tip.shaCmp") + DescribeState(_txtCompare.SHA256State, _txtCompare.SHA256Ref, "SHA256"));
                         }
                     }
                 }
                 // 哈希计算失败：展示失败原因
                 else if (_hashStage == HashStage.Failed)
                 {
-                    list.Add(Localization.F("item.hashFailedTip", _hashError ?? Localization.T("item.unknown")));
+                    lines.Add(Localization.F("item.hashFailedTip", _hashError ?? Localization.T("item.unknown")));
                 }
-                return string.Join(Environment.NewLine, list);
+                return string.Join(Environment.NewLine, lines);
             }
         }
 
@@ -318,17 +300,7 @@ namespace FileChecker
         }
 
         /// <summary>进度百分比文字（如 "45%"；未开始时为空字符串）。</summary>
-        public string HashPercentText
-        {
-            get
-            {
-                if (_hashPercent >= 0)
-                {
-                    return _hashPercent + "%";
-                }
-                return "";
-            }
-        }
+        public string HashPercentText => _hashPercent >= 0 ? _hashPercent + "%" : "";
 
         /// <summary>属性变化通知事件（WPF 数据绑定依赖）。</summary>
         public event PropertyChangedEventHandler PropertyChanged;
@@ -432,11 +404,7 @@ namespace FileChecker
                 case HashStage.Computing:
                     return Localization.T("item.computing");
                 case HashStage.Done:
-                    if (!string.IsNullOrEmpty(raw))
-                    {
-                        return raw;
-                    }
-                    return "—";
+                    return string.IsNullOrEmpty(raw) ? "—" : raw;
                 case HashStage.Failed:
                     return Localization.T("item.readFailed");
                 case HashStage.Cancelled:
@@ -496,9 +464,8 @@ namespace FileChecker
         /// </summary>
         private void UpdateCompareForeground()
         {
-            var txtCompare = _txtCompare;
-            Md5Foreground = ForegroundFor(txtCompare?.MD5State ?? HashMatchState.NoReference);
-            Sha256Foreground = ForegroundFor(txtCompare?.SHA256State ?? HashMatchState.NoReference);
+            Md5Foreground = ForegroundFor(_txtCompare?.MD5State ?? HashMatchState.NoReference);
+            Sha256Foreground = ForegroundFor(_txtCompare?.SHA256State ?? HashMatchState.NoReference);
         }
 
         /// <summary>把参照比对状态映射为列颜色。</summary>
@@ -592,10 +559,9 @@ namespace FileChecker
         /// </summary>
         private static Brush Make(byte r, byte g, byte b)
         {
-            var solidColorBrush = new SolidColorBrush(Color.FromRgb(r, g, b));
-            solidColorBrush.Freeze();
-            return solidColorBrush;
+            var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+            brush.Freeze();
+            return brush;
         }
     }
-
 }

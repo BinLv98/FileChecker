@@ -10,6 +10,6 @@
         /// <summary>简体中文。</summary>
         Chinese,
         /// <summary>英文。</summary>
-        English,
+        English
     }
 }

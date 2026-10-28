@@ -7,15 +7,15 @@
     public sealed class CleanStats
     {
         /// <summary>本次处理的文件总数。</summary>
-        public int Total;
+        public int Total { get; set; }
 
         /// <summary>成功移除了网络标记的文件数。</summary>
-        public int Removed;
+        public int Removed { get; set; }
 
         /// <summary>本身就没有网络标记（无需处理）的文件数。</summary>
-        public int Clean;
+        public int Clean { get; set; }
 
         /// <summary>处理失败的文件数。</summary>
-        public int Failed;
+        public int Failed { get; set; }
     }
 }

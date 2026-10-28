@@ -25,17 +25,17 @@ namespace FileChecker
         protected override void OnStartup(StartupEventArgs e)
         {
             // 解析命令行参数
-            var cliOptions = CommandLine.Parse(e.Args);
+            var options = CommandLine.Parse(e.Args);
             // 情形 1：参数非法 —— 弹出错误对话框后以退出码 2 结束
-            if (cliOptions.Error != null)
+            if (options.Error != null)
             {
-                MessageBox.Show(cliOptions.Error + "\r\n\r\n" + CommandLine.Usage, Localization.T("app.badArgsTitle"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                MessageBox.Show(options.Error + "\r\n\r\n" + CommandLine.Usage, Localization.T("app.badArgsTitle"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 Environment.ExitCode = 2;
                 Shutdown();
                 return;
             }
             // 情形 2：请求帮助（-h / --help / /?）—— 显示用法说明，退出码 0
-            else if (cliOptions.ShowHelp)
+            else if (options.ShowHelp)
             {
                 MessageBox.Show(CommandLine.Usage, Localization.T("app.helpTitle"), MessageBoxButton.OK, MessageBoxImage.Asterisk);
                 Environment.ExitCode = 0;
@@ -43,9 +43,9 @@ namespace FileChecker
                 return;
             }
             // 情形 3：传入了文件/文件夹路径 —— 直接静默处理，完成后退出
-            else if (cliOptions.Paths.Count != 0)
+            else if (options.Paths.Count != 0)
             {
-                Environment.ExitCode = RunSilent(cliOptions);
+                Environment.ExitCode = RunSilent(options);
                 Shutdown();
                 return;
             }
@@ -65,10 +65,10 @@ namespace FileChecker
         {
             // files：最终要处理的文件完整路径列表（去重）
             var files = new List<string>();
-            // hashSet：用于路径去重（大小写不敏感）
-            var hashSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            // list：无法处理的项目（不存在的路径、内部错误等）及原因
-            var list = new List<string>();
+            // seenPaths：用于路径去重（大小写不敏感）
+            var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // problemPaths：无法处理的项目（不存在的路径、内部错误等）及原因
+            var problemPaths = new List<string>();
             // inaccessible：因权限等原因无法访问的子目录数
             var inaccessible = 0;
             // 逐一展开用户给出的路径
@@ -79,60 +79,60 @@ namespace FileChecker
                     // 目录或文件存在：展开为文件列表（目录会按 recursive 设置递归）
                     if (Directory.Exists(path) || File.Exists(path))
                     {
-                        foreach (var item in AdsCleaner.ExpandPath(path, opts.Recursive, ref inaccessible))
+                        foreach (var file in AdsCleaner.ExpandPath(path, opts.Recursive, ref inaccessible))
                         {
                             // 去重：同一文件被多次指定时只处理一次
-                            if (hashSet.Add(item))
+                            if (seenPaths.Add(file))
                             {
-                                files.Add(item);
+                                files.Add(file);
                             }
                         }
                     }
                     else
                     {
                         // 路径不存在：记录为无法处理
-                        list.Add(path);
+                        problemPaths.Add(path);
                     }
                 }
                 catch (Exception ex)
                 {
                     // 展开过程中的异常：记录原因（本地化格式，如"（拒绝访问）"）
-                    list.Add(path + Localization.F("cli.missing", ex.Message));
+                    problemPaths.Add(path + Localization.F("cli.missing", ex.Message));
                 }
             }
-            CleanStats cleanStats;
+            CleanStats stats;
             try
             {
                 // 后台并行执行批量去除标记（无取消令牌，等待完成）
                 var task = Task.Run(() => AdsCleaner.ProcessFiles(files, null, CancellationToken.None));
                 task.Wait();
-                cleanStats = task.Result;
+                stats = task.Result;
             }
-            catch (Exception ex2)
+            catch (Exception ex)
             {
                 // 整体失败：全部文件按失败统计
-                cleanStats = new CleanStats
+                stats = new CleanStats
                 {
                     Total = files.Count,
                     Failed = files.Count
                 };
-                list.Add(Localization.F("cli.internalError", ex2.Message));
+                problemPaths.Add(Localization.F("cli.internalError", ex.Message));
             }
             // 组装结果摘要文本
-            var stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine(Localization.F("cli.summary", cleanStats.Total, cleanStats.Removed, cleanStats.Clean, cleanStats.Failed));
+            var sb = new StringBuilder();
+            sb.AppendLine(Localization.F("cli.summary", stats.Total, stats.Removed, stats.Clean, stats.Failed));
             // 补充不可访问的子目录数量
             if (inaccessible > 0)
             {
-                stringBuilder.AppendLine(Localization.F("cli.inaccessible", inaccessible));
+                sb.AppendLine(Localization.F("cli.inaccessible", inaccessible));
             }
             // 补充无法处理的项目明细
-            if (list.Count > 0)
+            if (problemPaths.Count > 0)
             {
-                stringBuilder.AppendLine(Localization.T("cli.cannot"));
-                foreach (var item2 in list)
+                sb.AppendLine(Localization.T("cli.cannot"));
+                foreach (var entry in problemPaths)
                 {
-                    stringBuilder.AppendLine("  - " + item2);
+                    sb.AppendLine("  - " + entry);
                 }
             }
             // 输出：指定了 --log 则写入文件（UTF-8），否则打印到控制台
@@ -140,14 +140,14 @@ namespace FileChecker
             {
                 try
                 {
-                    File.WriteAllText(opts.LogFile, stringBuilder.ToString(), Encoding.UTF8);
+                    File.WriteAllText(opts.LogFile, sb.ToString(), Encoding.UTF8);
                 }
-                catch (Exception ex3)
+                catch (Exception ex)
                 {
                     // 日志写入失败：尝试退回控制台提示；静默模式下可能无控制台，全部吞掉
                     try
                     {
-                        Console.WriteLine(Localization.F("cli.logFail", ex3.Message));
+                        Console.WriteLine(Localization.F("cli.logFail", ex.Message));
                     }
                     catch
                     {
@@ -159,7 +159,7 @@ namespace FileChecker
             {
                 try
                 {
-                    Console.WriteLine(stringBuilder.ToString());
+                    Console.WriteLine(sb.ToString());
                 }
                 catch
                 {
@@ -168,7 +168,7 @@ namespace FileChecker
                 }
             }
             // 退出码：只要存在失败项或不可访问项即为 1
-            return cleanStats.Failed + list.Count + inaccessible > 0 ? 1 : 0;
+            return stats.Failed + problemPaths.Count + inaccessible > 0 ? 1 : 0;
         }
     }
 }

@@ -27,64 +27,60 @@ namespace FileChecker.Utilities
         /// </returns>
         public static FileHashResult Compute(string path, CancellationToken ct, Action<double> reportProgress = null)
         {
-            var fileHashResult = new FileHashResult();
+            var result = new FileHashResult();
             try
             {
                 // 文件不存在：直接返回本地化的错误信息
                 if (!File.Exists(path))
                 {
-                    fileHashResult.Error = Localization.T("file.missing");
-                    return fileHashResult;
+                    result.Error = Localization.T("file.missing");
+                    return result;
                 }
                 // 以 1 MB 缓冲、顺序读模式打开文件，允许其他进程共享读/删除
                 using (var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1048576, FileOptions.SequentialScan))
+                using (var md5 = MD5.Create())
+                using (var sha256 = SHA256.Create())
                 {
-                    using (var mD = MD5.Create())
+                    var buffer = new byte[1048576];
+                    var fileLength = fileStream.Length;
+                    var totalRead = 0L;
+                    int bytesRead;
+                    // 分块读取直到文件末尾；每次读取后同步喂给两个哈希算法
+                    while ((bytesRead = fileStream.Read(buffer, 0, buffer.Length)) > 0)
                     {
-                        using (var sHa = SHA256.Create())
-                        {
-                            var array = new byte[1048576];
-                            var length = fileStream.Length;
-                            var num = 0L;
-                            int num2;
-                            // 分块读取直到文件末尾；每次读取后同步喂给两个哈希算法
-                            while ((num2 = fileStream.Read(array, 0, array.Length)) > 0)
-                            {
-                                // 每块之间检查取消请求，避免无法及时中止
-                                ct.ThrowIfCancellationRequested();
-                                mD.TransformBlock(array, 0, num2, null, 0);
-                                sHa.TransformBlock(array, 0, num2, null, 0);
-                                num += num2;
-                                // 上报已读取字节数对应的完成比例
-                                ReportProgress(reportProgress, length, num);
-                            }
-                            // 结束两个算法的输入流并取出最终摘要
-                            mD.TransformFinalBlock(array, 0, 0);
-                            sHa.TransformFinalBlock(array, 0, 0);
-                            fileHashResult.MD5 = ToHex(mD.Hash);
-                            fileHashResult.SHA256 = ToHex(sHa.Hash);
-                            fileHashResult.Ok = true;
-                        }
+                        // 每块之间检查取消请求，避免无法及时中止
+                        ct.ThrowIfCancellationRequested();
+                        md5.TransformBlock(buffer, 0, bytesRead, null, 0);
+                        sha256.TransformBlock(buffer, 0, bytesRead, null, 0);
+                        totalRead += bytesRead;
+                        // 上报已读取字节数对应的完成比例
+                        ReportProgress(reportProgress, fileLength, totalRead);
                     }
+                    // 结束两个算法的输入流并取出最终摘要
+                    md5.TransformFinalBlock(buffer, 0, 0);
+                    sha256.TransformFinalBlock(buffer, 0, 0);
+                    result.MD5 = ToHex(md5.Hash);
+                    result.SHA256 = ToHex(sha256.Hash);
+                    result.Ok = true;
                 }
                 // 全部读取完成后补发一次 100% 进度（空文件等边界情况也需要收尾）
                 if (reportProgress != null)
                 {
                     ReportProgress(reportProgress, 1L, 1L);
                 }
-                return fileHashResult;
+                return result;
             }
             catch (OperationCanceledException)
             {
                 // 用户取消：标记 Cancelled，不算错误
-                fileHashResult.Cancelled = true;
-                return fileHashResult;
+                result.Cancelled = true;
+                return result;
             }
-            catch (Exception ex2)
+            catch (Exception ex)
             {
                 // 其他异常（IO 错误、权限不足等）：记录错误信息
-                fileHashResult.Error = ex2.Message;
-                return fileHashResult;
+                result.Error = ex.Message;
+                return result;
             }
         }
 
@@ -98,10 +94,10 @@ namespace FileChecker.Utilities
                 return;
             }
             // 文件长度为 0 时按 1.0 处理；否则按已读/总量计算并限制不超过 1.0
-            var obj = total <= 0 ? 1.0 : Math.Min(1.0, read / (double)total);
+            var fraction = total <= 0 ? 1.0 : Math.Min(1.0, read / (double)total);
             try
             {
-                report(obj);
+                report(fraction);
             }
             catch
             {
@@ -117,12 +113,12 @@ namespace FileChecker.Utilities
         /// <returns>如 "e3b0c44298fc1c149afbf4c8996fb924..." 形式的十六进制文本。</returns>
         private static string ToHex(byte[] data)
         {
-            var stringBuilder = new StringBuilder(data.Length * 2);
+            var sb = new StringBuilder(data.Length * 2);
             foreach (var b in data)
             {
-                stringBuilder.Append(b.ToString("x2"));
+                sb.Append(b.ToString("x2"));
             }
-            return stringBuilder.ToString();
+            return sb.ToString();
         }
     }
 }

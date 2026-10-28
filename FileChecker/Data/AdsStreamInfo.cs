@@ -8,12 +8,12 @@
     public sealed class AdsStreamInfo
     {
         /// <summary>数据流的名称（不含前导冒号），主数据流为空字符串。</summary>
-        public string Name;
+        public string Name { get; set; }
 
         /// <summary>数据流的字节长度。</summary>
-        public long Length;
+        public long Length { get; set; }
 
         /// <summary>是否为文件的主数据流（即承载常规文件内容的数据流）。</summary>
-        public bool IsMainData;
+        public bool IsMainData { get; set; }
     }
 }

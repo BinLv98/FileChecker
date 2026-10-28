@@ -35,33 +35,33 @@ namespace FileChecker.Utilities
         /// </returns>
         public static TxtHashCompareResult Compare(string itemPath, string md5, string sha256)
         {
-            var txtHashCompareResult = new TxtHashCompareResult();
+            var result = new TxtHashCompareResult();
             // 先按命名约定查找参照 txt
-            var text = FindTxt(itemPath);
-            if (text == null)
+            var txtPath = FindTxt(itemPath);
+            if (txtPath == null)
             {
-                return txtHashCompareResult;
+                return result;
             }
-            txtHashCompareResult.TxtPath = text;
-            txtHashCompareResult.FoundTxt = true;
+            result.TxtPath = txtPath;
+            result.FoundTxt = true;
             string content;
             try
             {
-                content = File.ReadAllText(text);
+                content = File.ReadAllText(txtPath);
             }
             catch
             {
                 // 找到了但读不了（占用、无权限等）：标记读取失败，跳过比对
-                txtHashCompareResult.ReadFailed = true;
-                return txtHashCompareResult;
+                result.ReadFailed = true;
+                return result;
             }
             // 解析内容中的 MD5 / SHA256 记录
-            Parse(content, out var md6, out var sha257);
-            txtHashCompareResult.MD5Ref = md6;
-            txtHashCompareResult.SHA256Ref = sha257;
-            txtHashCompareResult.MD5State = CompareState(md6, md5);
-            txtHashCompareResult.SHA256State = CompareState(sha257, sha256);
-            return txtHashCompareResult;
+            Parse(content, out var md5Ref, out var sha256Ref);
+            result.MD5Ref = md5Ref;
+            result.SHA256Ref = sha256Ref;
+            result.MD5State = CompareState(md5Ref, md5);
+            result.SHA256State = CompareState(sha256Ref, sha256);
+            return result;
         }
 
         /// <summary>
@@ -82,16 +82,16 @@ namespace FileChecker.Utilities
                 return;
             }
             // 按行解析
-            var array = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var t in array)
+            var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var rawLine in lines)
             {
-                var text = t.Trim();
-                if (text.Length == 0)
+                var line = rawLine.Trim();
+                if (line.Length == 0)
                 {
                     continue;
                 }
                 // 优先识别带前缀的行：SHA256 / SHA-256 / MD5
-                if (TryPrefixedValue(text, "SHA256", out var value) || TryPrefixedValue(text, "SHA-256", out value))
+                if (TryPrefixedValue(line, "SHA256", out var value) || TryPrefixedValue(line, "SHA-256", out value))
                 {
                     // 只取第一个出现的 SHA256 记录
                     if (sha256 == null && value.Length > 0)
@@ -99,7 +99,7 @@ namespace FileChecker.Utilities
                         sha256 = value;
                     }
                 }
-                else if (TryPrefixedValue(text, "MD5", out value))
+                else if (TryPrefixedValue(line, "MD5", out value))
                 {
                     // 只取第一个出现的 MD5 记录
                     if (md5 == null && value.Length > 0)
@@ -110,10 +110,10 @@ namespace FileChecker.Utilities
                 else if (md5 == null)
                 {
                     // 无前缀的行：从中智能提取哈希值，作为 MD5 的兜底来源
-                    var text2 = PickValue(text);
-                    if (text2 != null)
+                    var picked = PickValue(line);
+                    if (picked != null)
                     {
-                        md5 = text2;
+                        md5 = picked;
                     }
                 }
                 // 两个值都齐了即可提前结束
@@ -146,25 +146,25 @@ namespace FileChecker.Utilities
             {
                 return false;
             }
-            var num = word.Length;
-            var flag = false;
+            var index = word.Length;
+            var hasSpace = false;
             // 跳过关键字后的空白字符
-            while (num < line.Length && char.IsWhiteSpace(line[num]))
+            while (index < line.Length && char.IsWhiteSpace(line[index]))
             {
-                num++;
-                flag = true;
+                index++;
+                hasSpace = true;
             }
             // 关键字后没有任何内容：不算有效记录
-            if (num >= line.Length)
+            if (index >= line.Length)
             {
                 return false;
             }
             // 若关键字与值之间没有空白，则必须紧跟分隔符，防止误匹配 "MD5XX..."
-            if (!flag && !IsSeparator(line[num]))
+            if (!hasSpace && !IsSeparator(line[index]))
             {
                 return false;
             }
-            value = PickValue(line.Substring(num)) ?? string.Empty;
+            value = PickValue(line.Substring(index)) ?? string.Empty;
             return true;
         }
 
@@ -179,29 +179,29 @@ namespace FileChecker.Utilities
             {
                 return null;
             }
-            string text = null;
+            string firstHex = null;
             // 逐片段扫描：记录第一个十六进制片段，同时寻找长度恰为 32/64 的
-            foreach (var item in Tokens(s))
+            foreach (var token in Tokens(s))
             {
-                if (IsHexAny(item))
+                if (IsHexAny(token))
                 {
                     // 记下第一个十六进制片段作为兜底
-                    text ??= item;
+                    firstHex ??= token;
                     // 32 位（MD5）或 64 位（SHA256）的片段直接命中
-                    if (item.Length is 32 or 64)
+                    if (token.Length is 32 or 64)
                     {
-                        return item;
+                        return token;
                     }
                 }
             }
             // 兜底 1：去掉所有分隔符后拼接（应对 "aa bb cc ..." 的分散写法）
-            var text2 = ComposeHex(s);
-            if (IsHexAny(text2))
+            var composed = ComposeHex(s);
+            if (IsHexAny(composed))
             {
-                return text2;
+                return composed;
             }
             // 兜底 2：返回找到的第一个十六进制片段（可能不是完整长度）
-            return text;
+            return firstHex;
         }
 
         /// <summary>
@@ -209,43 +209,43 @@ namespace FileChecker.Utilities
         /// </summary>
         private static IEnumerable<string> Tokens(string s)
         {
-            var num = -1;
+            var start = -1;
             for (var i = 0; i < s.Length; i++)
             {
                 if (IsSeparator(s[i]))
                 {
                     // 遇到分隔符：结束当前片段
-                    if (num >= 0)
+                    if (start >= 0)
                     {
-                        yield return s.Substring(num, i - num);
-                        num = -1;
+                        yield return s.Substring(start, i - start);
+                        start = -1;
                     }
                 }
-                else if (num < 0)
+                else if (start < 0)
                 {
                     // 新片段开始
-                    num = i;
+                    start = i;
                 }
             }
             // 收尾：返回最后一个片段
-            if (num >= 0)
+            if (start >= 0)
             {
-                yield return s.Substring(num);
+                yield return s.Substring(start);
             }
         }
 
         /// <summary>去掉字符串中的全部分隔符，返回拼接后的紧凑字符串。</summary>
         private static string ComposeHex(string s)
         {
-            var stringBuilder = new StringBuilder(s.Length);
+            var sb = new StringBuilder(s.Length);
             foreach (var c in s)
             {
                 if (!IsSeparator(c))
                 {
-                    stringBuilder.Append(c);
+                    sb.Append(c);
                 }
             }
-            return stringBuilder.ToString();
+            return sb.ToString();
         }
 
         /// <summary>
@@ -329,18 +329,18 @@ namespace FileChecker.Utilities
         private static string FindTxt(string itemPath)
         {
             // 候选 1：在文件全名后直接追加 ".txt"
-            var text = itemPath + ".txt";
-            if (ExistsAndIsOtherFile(text, itemPath))
+            var candidate1 = itemPath + ".txt";
+            if (ExistsAndIsOtherFile(candidate1, itemPath))
             {
-                return text;
+                return candidate1;
             }
             // 候选 2：同名（去扩展名）加 ".txt"
-            var directoryName = Path.GetDirectoryName(itemPath);
-            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(itemPath);
-            var text2 = string.IsNullOrEmpty(directoryName) ? fileNameWithoutExtension + ".txt" : Path.Combine(directoryName, fileNameWithoutExtension + ".txt");
-            if (ExistsAndIsOtherFile(text2, itemPath))
+            var dir = Path.GetDirectoryName(itemPath);
+            var nameNoExt = Path.GetFileNameWithoutExtension(itemPath);
+            var candidate2 = string.IsNullOrEmpty(dir) ? nameNoExt + ".txt" : Path.Combine(dir, nameNoExt + ".txt");
+            if (ExistsAndIsOtherFile(candidate2, itemPath))
             {
-                return text2;
+                return candidate2;
             }
             return null;
         }

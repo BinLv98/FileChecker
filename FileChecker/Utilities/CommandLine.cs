@@ -21,39 +21,39 @@ namespace FileChecker.Utilities
         /// <returns>解析结果对象；发生错误时 <see cref="CliOptions.Error"/> 非空。</returns>
         internal static CliOptions Parse(string[] args)
         {
-            var cliOptions = new CliOptions();
-            // flag 标记是否已遇到 "--" 分隔符；遇到后所有参数一律按路径处理
-            var flag = false;
+            var options = new CliOptions();
+            // pathMode：是否已遇到 "--" 分隔符；之后所有参数一律按路径处理
+            var pathMode = false;
             for (var i = 0; i < args.Length; i++)
             {
-                var text = args[i];
+                var arg = args[i];
                 // "--" 单独出现：切换为"后续均为路径"模式
-                if (!flag && text == "--")
+                if (!pathMode && arg == "--")
                 {
-                    flag = true;
+                    pathMode = true;
                 }
                 else
                 {
                     // 以 "-" 或 "/" 开头且未处于路径模式 → 按选项解析
-                    if (!flag && text.Length > 0 && (text[0] == '-' || text[0] == '/'))
+                    if (!pathMode && arg.Length > 0 && (arg[0] == '-' || arg[0] == '/'))
                     {
-                        switch (text)
+                        switch (arg)
                         {
                             // 帮助选项
                             case "/?":
                             case "-h":
                             case "--help":
-                                cliOptions.ShowHelp = true;
+                                options.ShowHelp = true;
                                 continue;
                             // 递归处理子文件夹（默认已开启，此处显式开启）
                             case "-r":
                             case "--recursive":
-                                cliOptions.Recursive = true;
+                                options.Recursive = true;
                                 continue;
                             // 关闭递归：仅处理文件夹内的直接文件
                             case "--no-recursive":
                             case "-t":
-                                cliOptions.Recursive = false;
+                                options.Recursive = false;
                                 continue;
                             // 静默模式：传路径时本就默认静默，仅做接受处理
                             case "-s":
@@ -61,34 +61,34 @@ namespace FileChecker.Utilities
                                 continue;
                         }
                         // --log=文件：从等号后提取日志路径（去除可能包裹的引号）
-                        if (text.StartsWith("--log=", StringComparison.OrdinalIgnoreCase))
+                        if (arg.StartsWith("--log=", StringComparison.OrdinalIgnoreCase))
                         {
-                            var text2 = text.Substring("--log=".Length).Trim('"');
-                            if (text2.Length > 0)
+                            var logPath = arg.Substring("--log=".Length).Trim('"');
+                            if (logPath.Length > 0)
                             {
-                                cliOptions.LogFile = text2;
+                                options.LogFile = logPath;
                             }
                             continue;
                         }
                         // -l 文件：日志路径作为下一个参数传入
-                        if (text == "-l")
+                        if (arg == "-l")
                         {
                             if (i + 1 < args.Length)
                             {
                                 i++;
-                                cliOptions.LogFile = args[i].Trim('"');
+                                options.LogFile = args[i].Trim('"');
                             }
                             continue;
                         }
                         // 无法识别的选项：记录错误并立即返回
-                        cliOptions.Error = Localization.F("cli.badArg", text);
-                        return cliOptions;
+                        options.Error = Localization.F("cli.badArg", arg);
+                        return options;
                     }
                     // 其余参数视为待处理的文件/文件夹路径
-                    cliOptions.Paths.Add(text);
+                    options.Paths.Add(arg);
                 }
             }
-            return cliOptions;
+            return options;
         }
     }
 }

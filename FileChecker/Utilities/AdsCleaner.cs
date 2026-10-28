@@ -21,6 +21,18 @@ namespace FileChecker.Utilities
     /// </summary>
     internal static class AdsCleaner
     {
+        /// <summary>下载来源标记流的固定名称（Zone.Identifier）。</summary>
+        public const string ZONE_STREAM_NAME = "Zone.Identifier";
+
+        // —— Win32 常量（CreateFileW 等调用使用）——
+        private const uint GENERIC_READ = 0x80000000u;          // 只读访问
+        private const uint FILE_SHARE_RW_DELETE = 7u;          // 共享读/写/删除
+        private const uint OPEN_EXISTING = 3u;                 // 仅打开已存在的文件
+        private const uint FILE_FLAG_SEQUENTIAL_SCAN = 0x80u;  // 顺序扫描提示
+
+        /// <summary>FindFirstStreamW 失败时返回的无效句柄（值为 -1）。</summary>
+        private static readonly IntPtr _invalidHandle = new(-1);
+
         /// <summary>
         /// FindFirstStreamW / FindNextStreamW 返回的流描述结构。
         /// <para>布局必须与 WIN32_FIND_STREAM_DATA 完全一致：先 8 字节的流大小，
@@ -36,12 +48,6 @@ namespace FileChecker.Utilities
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 296)]
             public string StreamName;
         }
-
-        /// <summary>下载来源标记流的固定名称（Zone.Identifier）。</summary>
-        public const string ZONE_STREAM_NAME = "Zone.Identifier";
-
-        /// <summary>FindFirstStreamW 失败时返回的无效句柄（值为 -1）。</summary>
-        private static readonly IntPtr _invalidHandle = new(-1);
 
         /// <summary>
         /// 删除指定文件（P/Invoke 包装）。
@@ -65,6 +71,18 @@ namespace FileChecker.Utilities
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool CloseHandle(IntPtr hObject);
 
+        /// <summary>开始枚举文件附加数据流（P/Invoke 包装）。</summary>
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+        private static extern IntPtr FindFirstStreamW(string lpFileName, int infoLevel, out Win32FindStreamData findStreamData, uint dwFlags);
+
+        /// <summary>继续枚举文件附加数据流（P/Invoke 包装）。</summary>
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+        private static extern bool FindNextStreamW(IntPtr hFindStream, out Win32FindStreamData findStreamData);
+
+        /// <summary>关闭枚举句柄（P/Invoke 包装）。</summary>
+        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        private static extern bool FindClose(IntPtr hFindFile);
+
         /// <summary>
         /// 移除单个文件的 Zone.Identifier 下载来源标记流。
         /// </summary>
@@ -79,14 +97,14 @@ namespace FileChecker.Utilities
             {
                 return AdsRemoveResult.Removed;
             }
-            var lastWin32Error = Marshal.GetLastWin32Error();
+            var win32Error = Marshal.GetLastWin32Error();
             // ERROR_FILE_NOT_FOUND(2) / ERROR_PATH_NOT_FOUND(3)：文件上根本没有该流
-            if (lastWin32Error is 2 or 3)
+            if (win32Error is 2 or 3)
             {
                 return AdsRemoveResult.NoStream;
             }
             // 其他错误：转换为可读信息返回
-            error = new Win32Exception(lastWin32Error).Message;
+            error = new Win32Exception(win32Error).Message;
             return AdsRemoveResult.Failed;
         }
 
@@ -103,11 +121,11 @@ namespace FileChecker.Utilities
         {
             removedCount = 0;
             error = null;
-            List<string> list;
+            List<string> streamNames;
             try
             {
                 // 先枚举出全部命名（非主）数据流的名称
-                list = CollectNamedStreamNames(path);
+                streamNames = CollectNamedStreamNames(path);
             }
             catch (Exception ex)
             {
@@ -116,33 +134,33 @@ namespace FileChecker.Utilities
                 return AdsRemoveResult.Failed;
             }
             // 返回 null 表示 Win32 枚举失败（最后一次错误的系统错误码可查）
-            if (list == null)
+            if (streamNames == null)
             {
                 error = new Win32Exception(Marshal.GetLastWin32Error()).Message;
                 return AdsRemoveResult.Failed;
             }
             // 没有任何命名流：无需清理
-            if (list.Count == 0)
+            if (streamNames.Count == 0)
             {
                 return AdsRemoveResult.NoStream;
             }
             // 逐一流删除
-            foreach (var item in list)
+            foreach (var streamName in streamNames)
             {
-                if (DeleteFileW(path + ":" + item))
+                if (DeleteFileW(path + ":" + streamName))
                 {
                     removedCount++;
                     continue;
                 }
-                var lastWin32Error = Marshal.GetLastWin32Error();
+                var win32Error = Marshal.GetLastWin32Error();
                 // 流在枚举与删除之间消失（2/3）也视为成功删除
-                if (lastWin32Error is 2 or 3)
+                if (win32Error is 2 or 3)
                 {
                     removedCount++;
                     continue;
                 }
                 // 记录第一个不可恢复的错误并中止
-                error ??= new Win32Exception(lastWin32Error).Message;
+                error ??= new Win32Exception(win32Error).Message;
                 return AdsRemoveResult.Failed;
             }
             return AdsRemoveResult.Removed;
@@ -155,10 +173,10 @@ namespace FileChecker.Utilities
         /// <returns>命名流名称列表；Win32 枚举失败时返回 null（此时系统错误码可查）。</returns>
         private static List<string> CollectNamedStreamNames(string path)
         {
-            var list = new List<string>();
-            var intPtr = FindFirstStreamW(path, 0, out var findStreamData, 0u);
+            var streamNames = new List<string>();
+            var handle = FindFirstStreamW(path, 0, out var streamData, 0u);
             // 句柄无效：枚举根本无法开始
-            if (intPtr == _invalidHandle)
+            if (handle == _invalidHandle)
             {
                 return null;
             }
@@ -167,34 +185,22 @@ namespace FileChecker.Utilities
                 // 首条流已在 FindFirstStreamW 输出中，随后用 FindNextStreamW 迭代
                 do
                 {
-                    var text = NormalizeStreamName(findStreamData.StreamName, out var isMain);
+                    var name = NormalizeStreamName(streamData.StreamName, out var isMain);
                     // 只收集命名（非主）流
-                    if (!isMain && text.Length > 0)
+                    if (!isMain && name.Length > 0)
                     {
-                        list.Add(text);
+                        streamNames.Add(name);
                     }
                 }
-                while (FindNextStreamW(intPtr, out findStreamData));
-                return list;
+                while (FindNextStreamW(handle, out streamData));
+                return streamNames;
             }
             finally
             {
                 // 无论成功与否都必须关闭查找句柄
-                FindClose(intPtr);
+                FindClose(handle);
             }
         }
-
-        /// <summary>开始枚举文件附加数据流（P/Invoke 包装）。</summary>
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
-        private static extern IntPtr FindFirstStreamW(string lpFileName, int infoLevel, out Win32FindStreamData findStreamData, uint dwFlags);
-
-        /// <summary>继续枚举文件附加数据流（P/Invoke 包装）。</summary>
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
-        private static extern bool FindNextStreamW(IntPtr hFindStream, out Win32FindStreamData findStreamData);
-
-        /// <summary>关闭枚举句柄（P/Invoke 包装）。</summary>
-        [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
-        private static extern bool FindClose(IntPtr hFindFile);
 
         /// <summary>
         /// 扫描指定文件的全部附加数据流，并解析其中的 Zone.Identifier 下载来源标记。
@@ -203,42 +209,39 @@ namespace FileChecker.Utilities
         /// <returns>扫描结果（含流列表与 Zone 解析信息）。</returns>
         public static AdsScanResult Scan(string path)
         {
-            var adsScanResult = new AdsScanResult
-            {
-                Path = path
-            };
+            var result = new AdsScanResult { Path = path };
             try
             {
-                var intPtr = FindFirstStreamW(path, 0, out var findStreamData, 0u);
+                var handle = FindFirstStreamW(path, 0, out var streamData, 0u);
                 // 无法枚举（文件不存在、非 NTFS、无权限等）：记录系统错误
-                if (intPtr == _invalidHandle)
+                if (handle == _invalidHandle)
                 {
-                    adsScanResult.Error = new Win32Exception(Marshal.GetLastWin32Error()).Message;
-                    return adsScanResult;
+                    result.Error = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+                    return result;
                 }
                 try
                 {
-                    AddStream(adsScanResult, findStreamData);
-                    while (FindNextStreamW(intPtr, out findStreamData))
+                    AddStream(result, streamData);
+                    while (FindNextStreamW(handle, out streamData))
                     {
-                        AddStream(adsScanResult, findStreamData);
+                        AddStream(result, streamData);
                     }
                 }
                 finally
                 {
-                    FindClose(intPtr);
+                    FindClose(handle);
                 }
-                adsScanResult.Ok = true;
+                result.Ok = true;
                 // 在所有命名流中查找 Zone.Identifier，命中后读取并解析其内容
-                foreach (var stream in adsScanResult.Streams)
+                foreach (var stream in result.Streams)
                 {
                     if (!stream.IsMainData && string.Equals(stream.Name, "Zone.Identifier", StringComparison.OrdinalIgnoreCase))
                     {
-                        adsScanResult.HasZone = true;
-                        adsScanResult.ZoneLength = stream.Length;
-                        adsScanResult.ZoneContent = ReadZoneContentSafe(path);
-                        adsScanResult.ZoneId = ParseZoneId(adsScanResult.ZoneContent);
-                        adsScanResult.ZoneHasExtraData = HasZoneExtraData(adsScanResult.ZoneContent);
+                        result.HasZone = true;
+                        result.ZoneLength = stream.Length;
+                        result.ZoneContent = ReadZoneContentSafe(path);
+                        result.ZoneId = ParseZoneId(result.ZoneContent);
+                        result.ZoneHasExtraData = HasZoneExtraData(result.ZoneContent);
                         break;
                     }
                 }
@@ -246,20 +249,20 @@ namespace FileChecker.Utilities
             catch (Exception ex)
             {
                 // 枚举中途的意外异常：标记失败并记录原因
-                adsScanResult.Ok = false;
-                adsScanResult.Error = ex.Message;
+                result.Ok = false;
+                result.Error = ex.Message;
             }
-            return adsScanResult;
+            return result;
         }
 
         /// <summary>把 Win32 枚举到的单条流信息规整后加入扫描结果。</summary>
-        private static void AddStream(AdsScanResult r, Win32FindStreamData d)
+        private static void AddStream(AdsScanResult result, Win32FindStreamData data)
         {
-            var name = NormalizeStreamName(d.StreamName, out var isMain);
-            r.Streams.Add(new AdsStreamInfo
+            var name = NormalizeStreamName(data.StreamName, out var isMain);
+            result.Streams.Add(new AdsStreamInfo
             {
                 Name = name,
-                Length = d.StreamSize,
+                Length = data.StreamSize,
                 IsMainData = isMain
             });
         }
@@ -281,19 +284,19 @@ namespace FileChecker.Utilities
                 isMain = true;
                 return string.Empty;
             }
-            var text = raw.TrimStart(':');
+            var name = raw.TrimStart(':');
             // 恰好是 "$DATA"：主数据流
-            if (string.Equals(text, "$DATA", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(name, "$DATA", StringComparison.OrdinalIgnoreCase))
             {
                 isMain = true;
                 return string.Empty;
             }
             // 以 ":$DATA" 结尾：剥掉该后缀得到真正的流名
-            if (text.EndsWith(":$DATA", StringComparison.OrdinalIgnoreCase))
+            if (name.EndsWith(":$DATA", StringComparison.OrdinalIgnoreCase))
             {
-                text = text.Substring(0, text.Length - 6);
+                name = name.Substring(0, name.Length - 6);
             }
-            return text.TrimEnd(':');
+            return name.TrimEnd(':');
         }
 
         /// <summary>安全读取 Zone.Identifier 流的文本内容（读取失败返回 null）。</summary>
@@ -312,29 +315,24 @@ namespace FileChecker.Utilities
         /// <returns>流内容文本；读取失败返回 null，内容为空返回空字符串。</returns>
         public static string ReadNamedStreamContentSafe(string path, string streamName)
         {
-            // 参数：GENERIC_READ(0x80000000) | FILE_SHARE 读/写/删除(7) | OPEN_EXISTING(3) | FILE_FLAG_SEQUENTIAL_SCAN(0x80)
-            var intPtr = CreateFileW(path + ":" + streamName, 2147483648u, 7u, IntPtr.Zero, 3u, 128u, IntPtr.Zero);
-            if (intPtr == new IntPtr(-1))
+            var handle = CreateFileW(path + ":" + streamName, GENERIC_READ, FILE_SHARE_RW_DELETE, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, IntPtr.Zero);
+            if (handle == new IntPtr(-1))
             {
                 return null;
             }
             try
             {
-                var array = new byte[65536];
+                var buffer = new byte[65536];
                 // 附加数据流通常很小，一次读取 64 KB 已足够
-                if (!ReadFile(intPtr, array, (uint)array.Length, out var lpNumberOfBytesRead, IntPtr.Zero))
+                if (!ReadFile(handle, buffer, (uint)buffer.Length, out var bytesRead, IntPtr.Zero))
                 {
                     return null;
                 }
-                if (lpNumberOfBytesRead == 0)
-                {
-                    return string.Empty;
-                }
-                return DecodeText(array, (int)lpNumberOfBytesRead);
+                return bytesRead == 0 ? string.Empty : DecodeText(buffer, (int)bytesRead);
             }
             finally
             {
-                CloseHandle(intPtr);
+                CloseHandle(handle);
             }
         }
 
@@ -376,35 +374,31 @@ namespace FileChecker.Utilities
         /// </summary>
         private static bool LooksLikeUtf16Le(byte[] buf, int count)
         {
-            var num = Math.Min(count, 512);
+            var sampleLen = Math.Min(count, 512);
             // 样本过少无法可靠判断
-            if (num < 8)
+            if (sampleLen < 8)
             {
                 return false;
             }
-            // num2 = 奇数下标出现 0 的次数；num3 = 偶数下标出现 0 的次数
-            var num2 = 0;
-            var num3 = 0;
-            for (var i = 0; i < num; i++)
+            // oddZeroes = 奇数下标出现 0 的次数；evenZeroes = 偶数下标出现 0 的次数
+            var oddZeroes = 0;
+            var evenZeroes = 0;
+            for (var i = 0; i < sampleLen; i++)
             {
                 if (buf[i] == 0)
                 {
                     if ((i & 1) == 1)
                     {
-                        num2++;
+                        oddZeroes++;
                     }
                     else
                     {
-                        num3++;
+                        evenZeroes++;
                     }
                 }
             }
             // 奇数位 0 至少 8 个且是偶数位 0 的两倍以上，才判定为 UTF-16 LE
-            if (num2 >= 8)
-            {
-                return num2 > num3 * 2;
-            }
-            return false;
+            return oddZeroes >= 8 && oddZeroes > evenZeroes * 2;
         }
 
         /// <summary>
@@ -419,27 +413,23 @@ namespace FileChecker.Utilities
                 return -1;
             }
             // 定位 "ZoneId=" 关键字（大小写不敏感）
-            var num = content.IndexOf("ZoneId=", StringComparison.OrdinalIgnoreCase);
-            if (num < 0)
+            var keywordIndex = content.IndexOf("ZoneId=", StringComparison.OrdinalIgnoreCase);
+            if (keywordIndex < 0)
             {
                 return -1;
             }
-            var num2 = num + "ZoneId=".Length;
+            var valueStart = keywordIndex + "ZoneId=".Length;
             // 向后扫描数字（允许负号），取连续的数字串
             int i;
-            for (i = num2; i < content.Length && (char.IsDigit(content[i]) || content[i] == '-'); i++)
+            for (i = valueStart; i < content.Length && (char.IsDigit(content[i]) || content[i] == '-'); i++)
             {
             }
             // 关键字后面没有数字：解析失败
-            if (i <= num2)
+            if (i <= valueStart)
             {
                 return -1;
             }
-            if (!int.TryParse(content.Substring(num2, i - num2), out var result))
-            {
-                return -1;
-            }
-            return result;
+            return int.TryParse(content.Substring(valueStart, i - valueStart), out var zoneId) ? zoneId : -1;
         }
 
         /// <summary>
@@ -454,12 +444,12 @@ namespace FileChecker.Utilities
                 return false;
             }
             // 统一换行符后按行拆分
-            var array = content.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-            foreach (var t in array)
+            var lines = content.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            foreach (var rawLine in lines)
             {
-                var text = t.Trim();
+                var line = rawLine.Trim();
                 // 非空、非节标题、非 ZoneId 行的内容 → 视为额外数据
-                if (text.Length != 0 && text[0] != '[' && !text.StartsWith("ZoneId=", StringComparison.OrdinalIgnoreCase))
+                if (line.Length != 0 && line[0] != '[' && !line.StartsWith("ZoneId=", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -479,16 +469,16 @@ namespace FileChecker.Utilities
         /// <returns>展开后的文件完整路径列表。</returns>
         public static List<string> ExpandPath(string root, bool recursive, ref int inaccessible)
         {
-            var list = new List<string>();
+            var files = new List<string>();
             try
             {
                 if (Directory.Exists(root))
                 {
-                    Walk(root, recursive, list, ref inaccessible);
+                    Walk(root, recursive, files, ref inaccessible);
                 }
                 else if (File.Exists(root))
                 {
-                    list.Add(root);
+                    files.Add(root);
                 }
             }
             catch (Exception ex)
@@ -500,7 +490,7 @@ namespace FileChecker.Utilities
                 }
                 inaccessible++;
             }
-            return list;
+            return files;
         }
 
         /// <summary>
@@ -513,9 +503,9 @@ namespace FileChecker.Utilities
             // 收集当前目录的直接文件
             try
             {
-                foreach (var item in Directory.EnumerateFiles(dir))
+                foreach (var file in Directory.EnumerateFiles(dir))
                 {
-                    files.Add(item);
+                    files.Add(file);
                 }
             }
             catch (Exception ex)
@@ -534,10 +524,10 @@ namespace FileChecker.Utilities
                 return;
             }
             // 收集直接子目录
-            IEnumerable<string> enumerable;
+            IEnumerable<string> subDirs;
             try
             {
-                enumerable = Directory.EnumerateDirectories(dir);
+                subDirs = Directory.EnumerateDirectories(dir);
             }
             catch (Exception ex2)
             {
@@ -548,12 +538,12 @@ namespace FileChecker.Utilities
                 }
                 throw;
             }
-            foreach (var item2 in enumerable)
+            foreach (var subDir in subDirs)
             {
                 // 跳过符号链接/重解析点，避免目录环路造成死循环
                 try
                 {
-                    if ((File.GetAttributes(item2) & FileAttributes.ReparsePoint) != 0)
+                    if ((File.GetAttributes(subDir) & FileAttributes.ReparsePoint) != 0)
                     {
                         continue;
                     }
@@ -568,7 +558,7 @@ namespace FileChecker.Utilities
                     throw;
                 }
                 // 递归下探子目录（递归深度下始终开启递归，即使顶层 recursive=false 也已提前返回）
-                Walk(item2, recursive: true, files, ref inaccessible);
+                Walk(subDir, recursive: true, files, ref inaccessible);
             }
         }
 
@@ -578,11 +568,7 @@ namespace FileChecker.Utilities
         private static bool IsIoDenied(Exception ex)
         {
             // 权限、IO 抢占、安全限制、不支持的操作都归为可跳过类别
-            if (!(ex is UnauthorizedAccessException) && !(ex is IOException) && !(ex is SecurityException))
-            {
-                return ex is NotSupportedException;
-            }
-            return true;
+            return ex is UnauthorizedAccessException or IOException or SecurityException or NotSupportedException;
         }
 
         /// <summary>
@@ -611,22 +597,22 @@ namespace FileChecker.Utilities
             };
             Parallel.ForEach(files, parallelOptions, file =>
             {
-                AdsRemoveResult adsRemoveResult;
+                AdsRemoveResult removeResult;
                 string error;
                 // 文件在队列期间被移动/删除：按失败处理并给出明确原因
                 if (!File.Exists(file))
                 {
-                    adsRemoveResult = AdsRemoveResult.Failed;
+                    removeResult = AdsRemoveResult.Failed;
                     error = Localization.T("file.missing");
                 }
                 else
                 {
-                    adsRemoveResult = RemoveZoneIdentifier(file, out error);
+                    removeResult = RemoveZoneIdentifier(file, out error);
                 }
                 // 原子地更新汇总计数
                 lock (gate)
                 {
-                    switch (adsRemoveResult)
+                    switch (removeResult)
                     {
                         case AdsRemoveResult.Removed:
                             removed++;
@@ -640,15 +626,15 @@ namespace FileChecker.Utilities
                     }
                 }
                 // 生成进度报告并回调（GUI 模式下由回调把结果投递给 UI 线程）
-                var obj = new FileReport
+                var report = new FileReport
                 {
                     Path = file,
-                    Result = adsRemoveResult,
+                    Result = removeResult,
                     Error = error
                 };
                 if (onCompleted != null)
                 {
-                    onCompleted(obj);
+                    onCompleted(report);
                 }
             });
             return new CleanStats
