@@ -142,7 +142,7 @@ namespace FileChecker
                 }
                 else
                 {
-                    text = (string.IsNullOrEmpty(adsResult._error) ? Localization.T("item.unknown") : adsResult._error);
+                    text = string.IsNullOrEmpty(adsResult._error) ? Localization.T("item.unknown") : adsResult._error;
                 }
                 return Localization.F("detail.unreadable", text);
             }
@@ -154,9 +154,9 @@ namespace FileChecker
             var num = 0;
             foreach (var stream in adsResult._streams)
             {
-                if (!stream._isMainData)
+                if (!stream.IsMainData)
                 {
-                    var text2 = AdsCleaner.ReadNamedStreamContentSafe(adsResult._path, stream._name);
+                    var text2 = AdsCleaner.ReadNamedStreamContentSafe(adsResult._path, stream.Name);
                     if (text2 == null)
                     {
                         text2 = Localization.T("detail.streamUnreadable");
@@ -217,8 +217,8 @@ namespace FileChecker
                         MessageBox.Show(this, Localization.T("detail.clearNone"), Localization.T("detail.clearDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Asterisk);
                         return;
                 }
-                var text = (string.IsNullOrEmpty(error) ? Localization.T("item.unknown") : error);
-                var messageBoxText = ((removedCount > 0) ? Localization.F("detail.clearPartial", removedCount, text) : Localization.F("detail.clearFail", text));
+                var text = string.IsNullOrEmpty(error) ? Localization.T("item.unknown") : error;
+                var messageBoxText = removedCount > 0 ? Localization.F("detail.clearPartial", removedCount, text) : Localization.F("detail.clearFail", text);
                 MessageBox.Show(this, messageBoxText, Localization.T("detail.clearFailTitle"), MessageBoxButton.OK, MessageBoxImage.Hand);
             }
         }

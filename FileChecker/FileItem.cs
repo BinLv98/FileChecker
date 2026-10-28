@@ -3,17 +3,12 @@ using FileChecker.Definitions;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Media;
 
 namespace FileChecker
 {
     public sealed class FileItem : INotifyPropertyChanged
     {
-        private const string DASH = "—";
-
         private ItemStatus _status;
 
         private string _removeError;
@@ -56,14 +51,11 @@ namespace FileChecker
 
         private static readonly Brush _hashMismatchBrush = Make(217, 48, 37);
 
-        public string Path { get; private set; }
+        public string Path { get; }
 
         public ItemStatus Status
         {
-            get
-            {
-                return _status;
-            }
+            get => _status;
             private set
             {
                 if (_status != value)
@@ -152,8 +144,7 @@ namespace FileChecker
         {
             get
             {
-                var list = new List<string>();
-                list.Add(Path);
+                var list = new List<string> { Path };
                 if (_adsResult != null)
                 {
                     var adsText = AdsText;
@@ -207,10 +198,7 @@ namespace FileChecker
 
         public HashStage HashStage
         {
-            get
-            {
-                return _hashStage;
-            }
+            get => _hashStage;
             private set
             {
                 if (_hashStage != value)
@@ -226,10 +214,7 @@ namespace FileChecker
 
         public Brush Md5Foreground
         {
-            get
-            {
-                return _md5Foreground;
-            }
+            get => _md5Foreground;
             private set
             {
                 if (_md5Foreground != value)
@@ -242,10 +227,7 @@ namespace FileChecker
 
         public Brush Sha256Foreground
         {
-            get
-            {
-                return _sha256Foreground;
-            }
+            get => _sha256Foreground;
             private set
             {
                 if (_sha256Foreground != value)
@@ -258,10 +240,7 @@ namespace FileChecker
 
         public int HashPercent
         {
-            get
-            {
-                return _hashPercent;
-            }
+            get => _hashPercent;
             private set
             {
                 if (_hashPercent != value)
@@ -384,8 +363,8 @@ namespace FileChecker
 
         public void SetHashResult(string md5Hex, string sha256Hex)
         {
-            _md5Raw = (string.IsNullOrEmpty(md5Hex) ? null : md5Hex);
-            _sha256Raw = (string.IsNullOrEmpty(sha256Hex) ? null : sha256Hex);
+            _md5Raw = string.IsNullOrEmpty(md5Hex) ? null : md5Hex;
+            _sha256Raw = string.IsNullOrEmpty(sha256Hex) ? null : sha256Hex;
             _hashError = null;
             HashStage = HashStage.Done;
             UpdateCompareForeground();
@@ -423,7 +402,7 @@ namespace FileChecker
         {
             _md5Raw = null;
             _sha256Raw = null;
-            _hashError = (string.IsNullOrEmpty(error) ? Localization.T("item.unknown") : error);
+            _hashError = string.IsNullOrEmpty(error) ? Localization.T("item.unknown") : error;
             _txtCompare = null;
             Md5Foreground = _hashErrorBrush;
             Sha256Foreground = _hashErrorBrush;

@@ -45,17 +45,17 @@ namespace FileChecker
 
         private static int RunSilent(CliOptions opts)
         {
-            List<string> files = new List<string>();
-            HashSet<string> hashSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            List<string> list = new List<string>();
-            int inaccessible = 0;
-            foreach (string path in opts.Paths)
+            var files = new List<string>();
+            var hashSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var list = new List<string>();
+            var inaccessible = 0;
+            foreach (var path in opts.Paths)
             {
                 try
                 {
                     if (Directory.Exists(path) || File.Exists(path))
                     {
-                        foreach (string item in AdsCleaner.ExpandPath(path, opts.Recursive, ref inaccessible))
+                        foreach (var item in AdsCleaner.ExpandPath(path, opts.Recursive, ref inaccessible))
                         {
                             if (hashSet.Add(item))
                             {
@@ -76,7 +76,7 @@ namespace FileChecker
             CleanStats cleanStats;
             try
             {
-                Task<CleanStats> task = Task.Run(() => AdsCleaner.ProcessFiles(files, null, CancellationToken.None));
+                var task = Task.Run(() => AdsCleaner.ProcessFiles(files, null, CancellationToken.None));
                 task.Wait();
                 cleanStats = task.Result;
             }
@@ -84,9 +84,9 @@ namespace FileChecker
             {
                 cleanStats = new CleanStats
                 {
-                    Total = files.Count
+                    Total = files.Count,
+                    Failed = files.Count
                 };
-                cleanStats.Failed = files.Count;
                 list.Add(Localization.F("cli.internalError", ex2.Message));
             }
             var stringBuilder = new StringBuilder();
@@ -98,7 +98,7 @@ namespace FileChecker
             if (list.Count > 0)
             {
                 stringBuilder.AppendLine(Localization.T("cli.cannot"));
-                foreach (string item2 in list)
+                foreach (var item2 in list)
                 {
                     stringBuilder.AppendLine("  - " + item2);
                 }
@@ -117,6 +117,7 @@ namespace FileChecker
                     }
                     catch
                     {
+                        // ignored
                     }
                 }
             }
@@ -128,9 +129,10 @@ namespace FileChecker
                 }
                 catch
                 {
+                    // ignored
                 }
             }
-            return (cleanStats.Failed + list.Count + inaccessible > 0) ? 1 : 0;
+            return cleanStats.Failed + list.Count + inaccessible > 0 ? 1 : 0;
         }
     }
 

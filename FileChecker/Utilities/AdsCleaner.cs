@@ -47,7 +47,7 @@ namespace FileChecker.Utilities
                 return AdsRemoveResult.Removed;
             }
             var lastWin32Error = Marshal.GetLastWin32Error();
-            if (lastWin32Error == 2 || lastWin32Error == 3)
+            if (lastWin32Error is 2 or 3)
             {
                 return AdsRemoveResult.NoStream;
             }
@@ -86,15 +86,12 @@ namespace FileChecker.Utilities
                     continue;
                 }
                 var lastWin32Error = Marshal.GetLastWin32Error();
-                if (lastWin32Error == 2 || lastWin32Error == 3)
+                if (lastWin32Error is 2 or 3)
                 {
                     removedCount++;
                     continue;
                 }
-                if (error == null)
-                {
-                    error = new Win32Exception(lastWin32Error).Message;
-                }
+                error ??= new Win32Exception(lastWin32Error).Message;
                 return AdsRemoveResult.Failed;
             }
             return AdsRemoveResult.Removed;
@@ -165,10 +162,10 @@ namespace FileChecker.Utilities
                 adsScanResult._ok = true;
                 foreach (var stream in adsScanResult._streams)
                 {
-                    if (!stream._isMainData && string.Equals(stream._name, "Zone.Identifier", StringComparison.OrdinalIgnoreCase))
+                    if (!stream.IsMainData && string.Equals(stream.Name, "Zone.Identifier", StringComparison.OrdinalIgnoreCase))
                     {
                         adsScanResult._hasZone = true;
-                        adsScanResult._zoneLength = stream._length;
+                        adsScanResult._zoneLength = stream.Length;
                         adsScanResult._zoneContent = ReadZoneContentSafe(path);
                         adsScanResult._zoneId = ParseZoneId(adsScanResult._zoneContent);
                         adsScanResult._zoneHasExtraData = HasZoneExtraData(adsScanResult._zoneContent);
@@ -189,9 +186,9 @@ namespace FileChecker.Utilities
             var name = NormalizeStreamName(d.StreamName, out var isMain);
             r._streams.Add(new AdsStreamInfo
             {
-                _name = name,
-                _length = d.StreamSize,
-                _isMainData = isMain
+                Name = name,
+                Length = d.StreamSize,
+                IsMainData = isMain
             });
         }
 
@@ -332,9 +329,9 @@ namespace FileChecker.Utilities
                 return false;
             }
             var array = content.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-            for (var i = 0; i < array.Length; i++)
+            foreach (var t in array)
             {
-                var text = array[i].Trim();
+                var text = t.Trim();
                 if (text.Length != 0 && text[0] != '[' && !text.StartsWith("ZoneId=", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;

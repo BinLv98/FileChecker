@@ -69,13 +69,14 @@ namespace FileChecker.Utilities
             {
                 return;
             }
-            var obj = ((total <= 0) ? 1.0 : Math.Min(1.0, (double)read / (double)total));
+            var obj = total <= 0 ? 1.0 : Math.Min(1.0, read / (double)total);
             try
             {
                 report(obj);
             }
             catch
             {
+                // ignored
             }
         }
 

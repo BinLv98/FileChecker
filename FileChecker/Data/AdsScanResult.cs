@@ -29,7 +29,7 @@ namespace FileChecker.Data
                 var num = 0;
                 foreach (var stream in _streams)
                 {
-                    if (!stream._isMainData)
+                    if (!stream.IsMainData)
                     {
                         num++;
                     }

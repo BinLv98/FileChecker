@@ -104,7 +104,7 @@ namespace FileChecker
             _applyingLang = true;
             try
             {
-                LangCombo.SelectedIndex = ((Localization.CurrentLanguage == AppLanguage.English) ? 1 : 0);
+                LangCombo.SelectedIndex = Localization.CurrentLanguage == AppLanguage.English ? 1 : 0;
                 DropTitle.Text = Localization.T("main.dropTitle");
                 DropSub.Text = Localization.T("main.dropSub");
                 AddFilesBtn.Content = Localization.T("main.addFiles");
@@ -165,15 +165,15 @@ namespace FileChecker
         {
             if (!_applyingLang && LangCombo.SelectedIndex >= 0)
             {
-                Localization.Set((LangCombo.SelectedIndex == 1) ? AppLanguage.English : AppLanguage.Chinese);
+                Localization.Set(LangCombo.SelectedIndex == 1 ? AppLanguage.English : AppLanguage.Chinese);
             }
         }
 
         private void Window_DragOver(object sender, System.Windows.DragEventArgs e)
         {
             var flag = !Busy && e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop);
-            e.Effects = (flag ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None);
-            DropBorder.Background = (flag ? _dropHotBrush : _dropNormalBrush);
+            e.Effects = flag ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+            DropBorder.Background = flag ? _dropHotBrush : _dropNormalBrush;
             e.Handled = true;
         }
 
@@ -287,7 +287,7 @@ namespace FileChecker
             UpdateProcessEnabled();
             SetSummaryFunc(() =>
             {
-                var text = ((added > 0) ? Localization.F("msg.added", added) : Localization.T("msg.noNew"));
+                var text = added > 0 ? Localization.F("msg.added", added) : Localization.T("msg.noNew");
                 if (skipped > 0)
                 {
                     text += Localization.F("msg.ignoreInvalid", skipped);
@@ -425,7 +425,7 @@ namespace FileChecker
                 {
                     _runDone = true;
                 }
-            });
+            }, token);
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
@@ -447,8 +447,7 @@ namespace FileChecker
         private void DrainTick(object sender, EventArgs e)
         {
             var num = 0;
-            FileReport result;
-            while (num++ < 5000 && _queue.TryDequeue(out result))
+            while (num++ < 5000 && _queue.TryDequeue(out var result))
             {
                 if (_map.TryGetValue(result._path, out var value))
                 {
@@ -474,8 +473,8 @@ namespace FileChecker
                 _drainTimer.Stop();
                 _drainTimer = null;
             }
-            FileReport result;
-            while (_queue.TryDequeue(out result))
+
+            while (_queue.TryDequeue(out var result))
             {
                 if (_map.TryGetValue(result._path, out var value))
                 {
@@ -555,8 +554,7 @@ namespace FileChecker
                 return;
             }
             var list = new List<FileItem>();
-            FileItem result;
-            while (list.Count < 128 && _adsQueue.TryDequeue(out result))
+            while (list.Count < 128 && _adsQueue.TryDequeue(out var result))
             {
                 list.Add(result);
             }
@@ -708,7 +706,7 @@ namespace FileChecker
                 {
                     disp.BeginInvoke(new Action(FinishHashJob), DispatcherPriority.Background);
                 }
-            });
+            }, token);
         }
 
         private static Action<double> CreateHashReporter(FileItem item, Dispatcher disp)
@@ -717,7 +715,7 @@ namespace FileChecker
             var sw = Stopwatch.StartNew();
             return f =>
             {
-                var num = ((f >= 1.0) ? 100 : ((!(f <= 0.0)) ? ((int)Math.Floor(f * 100.0)) : 0));
+                var num = f >= 1.0 ? 100 : !(f <= 0.0) ? (int)Math.Floor(f * 100.0) : 0;
                 if (num > lastPct && (num >= 100 || sw.ElapsedMilliseconds >= 90))
                 {
                     lastPct = num;
@@ -790,9 +788,9 @@ namespace FileChecker
             var md5Raw = fileItem.Md5Raw;
             var sha256Raw = fileItem.Sha256Raw;
             string text2 = null;
-            if (!(text == "both"))
+            if (text != "both")
             {
-                text2 = ((!(text == "md5")) ? sha256Raw : md5Raw);
+                text2 = text != "md5" ? sha256Raw : md5Raw;
             }
             else if (md5Raw != null && sha256Raw != null)
             {
@@ -876,12 +874,12 @@ namespace FileChecker
         private void RefreshEmptyHint()
         {
             var flag = _items.Count == 0;
-            EmptyHint.Visibility = ((!flag) ? Visibility.Collapsed : Visibility.Visible);
+            EmptyHint.Visibility = !flag ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void SetSummary(string key, params object[] args)
         {
-            var a = args ?? new object[0];
+            var a = args ?? Array.Empty<object>();
             _summaryRender = () => Localization.F(key, a);
             SummaryText.Text = _summaryRender();
         }
@@ -930,7 +928,7 @@ namespace FileChecker
             {
                 return;
             }
-            var messageBoxText = (_running ? Localization.T("msg.closeRemove") : Localization.T("msg.closeHash"));
+            var messageBoxText = _running ? Localization.T("msg.closeRemove") : Localization.T("msg.closeHash");
             if (System.Windows.MessageBox.Show(this, messageBoxText, "FileChecker", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
                 e.Cancel = true;

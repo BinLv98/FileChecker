@@ -43,7 +43,7 @@ namespace FileChecker
                         }
                         if (text.StartsWith("--log=", StringComparison.OrdinalIgnoreCase))
                         {
-                            string text2 = text.Substring("--log=".Length).Trim('"');
+                            var text2 = text.Substring("--log=".Length).Trim('"');
                             if (text2.Length > 0)
                             {
                                 cliOptions.LogFile = text2;

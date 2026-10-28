@@ -3,9 +3,7 @@ using FileChecker.Definitions;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace FileChecker.Utilities
 {
@@ -53,10 +51,10 @@ namespace FileChecker.Utilities
             {
                 return;
             }
-            var array = content.Split(new char[2] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            for (var i = 0; i < array.Length; i++)
+            var array = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var t in array)
             {
-                var text = array[i].Trim();
+                var text = t.Trim();
                 if (text.Length == 0)
                 {
                     continue;
@@ -131,11 +129,8 @@ namespace FileChecker.Utilities
             {
                 if (IsHexAny(item))
                 {
-                    if (text == null)
-                    {
-                        text = item;
-                    }
-                    if (item.Length == 32 || item.Length == 64)
+                    text ??= item;
+                    if (item.Length is 32 or 64)
                     {
                         return item;
                     }
@@ -253,7 +248,7 @@ namespace FileChecker.Utilities
             }
             var directoryName = Path.GetDirectoryName(itemPath);
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(itemPath);
-            var text2 = (string.IsNullOrEmpty(directoryName) ? (fileNameWithoutExtension + ".txt") : Path.Combine(directoryName, fileNameWithoutExtension + ".txt"));
+            var text2 = string.IsNullOrEmpty(directoryName) ? fileNameWithoutExtension + ".txt" : Path.Combine(directoryName, fileNameWithoutExtension + ".txt");
             if (ExistsAndIsOtherFile(text2, itemPath))
             {
                 return text2;
@@ -282,7 +277,7 @@ namespace FileChecker.Utilities
             }
             foreach (var c in s)
             {
-                if ((c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F'))
+                if (c is (< '0' or > '9') and (< 'a' or > 'f') and (< 'A' or > 'F'))
                 {
                     return false;
                 }
