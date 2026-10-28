@@ -159,8 +159,16 @@ namespace FileChecker
             // 尚未扫描或扫描失败：输出提示文字
             if (adsResult == null || !adsResult.Ok)
             {
-                // 有错误信息则显示，否则显示"未知原因"
-                var reason = adsResult == null ? Localization.T("detail.rescanHint") : (string.IsNullOrEmpty(adsResult.Error) ? Localization.T("item.unknown") : adsResult.Error);
+                string reason;
+                if (adsResult == null)
+                {
+                    reason = Localization.T("detail.rescanHint");
+                }
+                else
+                {
+                    // 有错误信息则显示，否则显示"未知原因"
+                    reason = string.IsNullOrEmpty(adsResult.Error) ? Localization.T("item.unknown") : adsResult.Error;
+                }
                 return Localization.F("detail.unreadable", reason);
             }
             // 没有任何命名流：说明文件是干净的
@@ -204,7 +212,8 @@ namespace FileChecker
         private void ClearAll_Click(object sender, RoutedEventArgs e)
         {
             // 二次确认：此操作不可撤销
-            if (_item != null && MessageBox.Show(this, Localization.T("detail.clearAsk"), Localization.T("detail.clearAskTitle"), MessageBoxButton.YesNo, MessageBoxImage.Exclamation, MessageBoxResult.No) == MessageBoxResult.Yes)
+            if (_item != null && MessageBox.Show(this, Localization.T("detail.clearAsk"), Localization.T("detail.clearAskTitle"),
+                MessageBoxButton.YesNo, MessageBoxImage.Exclamation, MessageBoxResult.No) == MessageBoxResult.Yes)
             {
                 AdsRemoveResult removeResult;
                 int removedCount;
@@ -241,16 +250,20 @@ namespace FileChecker
                 switch (removeResult)
                 {
                     case AdsRemoveResult.Removed:
-                        MessageBox.Show(this, Localization.F("detail.clearDone", removedCount), Localization.T("detail.clearDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                        MessageBox.Show(this, Localization.F("detail.clearDone", removedCount), Localization.T("detail.clearDoneTitle"),
+                            MessageBoxButton.OK, MessageBoxImage.Asterisk);
                         return;
                     case AdsRemoveResult.NoStream:
-                        MessageBox.Show(this, Localization.T("detail.clearNone"), Localization.T("detail.clearDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                        MessageBox.Show(this, Localization.T("detail.clearNone"), Localization.T("detail.clearDoneTitle"),
+                            MessageBoxButton.OK, MessageBoxImage.Asterisk);
                         return;
                 }
                 // 失败（或部分成功）：展示错误信息
                 var reason = string.IsNullOrEmpty(error) ? Localization.T("item.unknown") : error;
-                var message = removedCount > 0 ? Localization.F("detail.clearPartial", removedCount, reason) : Localization.F("detail.clearFail", reason);
-                MessageBox.Show(this, message, Localization.T("detail.clearFailTitle"), MessageBoxButton.OK, MessageBoxImage.Hand);
+                var message = removedCount > 0 ? Localization.F("detail.clearPartial", removedCount, reason)
+                    : Localization.F("detail.clearFail", reason);
+                MessageBox.Show(this, message, Localization.T("detail.clearFailTitle"),
+                    MessageBoxButton.OK, MessageBoxImage.Hand);
             }
         }
     }

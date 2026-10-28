@@ -37,7 +37,8 @@ namespace FileChecker.Utilities
                     return result;
                 }
                 // 以 1 MB 缓冲、顺序读模式打开文件，允许其他进程共享读/删除
-                using (var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1048576, FileOptions.SequentialScan))
+                using (var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 1048576, FileOptions.SequentialScan))
                 using (var md5 = MD5.Create())
                 using (var sha256 = SHA256.Create())
                 {

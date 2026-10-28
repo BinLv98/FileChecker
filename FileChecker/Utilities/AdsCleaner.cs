@@ -61,11 +61,13 @@ namespace FileChecker.Utilities
         /// 打开文件（P/Invoke 包装），用于读取附加数据流的内容。
         /// </summary>
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern IntPtr CreateFileW(string lpFileName, uint dwDesiredAccess, uint dwShareMode, IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+        private static extern IntPtr CreateFileW(string lpFileName, uint dwDesiredAccess, uint dwShareMode,
+            IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
 
         /// <summary>从文件句柄读取字节（P/Invoke 包装）。</summary>
         [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool ReadFile(IntPtr hFile, byte[] lpBuffer, uint nNumberOfBytesToRead, out uint lpNumberOfBytesRead, IntPtr lpOverlapped);
+        private static extern bool ReadFile(IntPtr hFile, byte[] lpBuffer, uint nNumberOfBytesToRead,
+            out uint lpNumberOfBytesRead, IntPtr lpOverlapped);
 
         /// <summary>关闭句柄（P/Invoke 包装）。</summary>
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -93,7 +95,7 @@ namespace FileChecker.Utilities
         {
             error = null;
             // 借助"文件名:流名"语法删除附加数据流；成功说明标记确实存在并被移除
-            if (DeleteFileW(path + ":Zone.Identifier"))
+            if (DeleteFileW(path + ":" + ZONE_STREAM_NAME))
             {
                 return AdsRemoveResult.Removed;
             }
@@ -235,7 +237,7 @@ namespace FileChecker.Utilities
                 // 在所有命名流中查找 Zone.Identifier，命中后读取并解析其内容
                 foreach (var stream in result.Streams)
                 {
-                    if (!stream.IsMainData && string.Equals(stream.Name, "Zone.Identifier", StringComparison.OrdinalIgnoreCase))
+                    if (!stream.IsMainData && string.Equals(stream.Name, ZONE_STREAM_NAME, StringComparison.OrdinalIgnoreCase))
                     {
                         result.HasZone = true;
                         result.ZoneLength = stream.Length;
@@ -302,7 +304,7 @@ namespace FileChecker.Utilities
         /// <summary>安全读取 Zone.Identifier 流的文本内容（读取失败返回 null）。</summary>
         public static string ReadZoneContentSafe(string path)
         {
-            return ReadNamedStreamContentSafe(path, "Zone.Identifier");
+            return ReadNamedStreamContentSafe(path, ZONE_STREAM_NAME);
         }
 
         /// <summary>
@@ -315,7 +317,8 @@ namespace FileChecker.Utilities
         /// <returns>流内容文本；读取失败返回 null，内容为空返回空字符串。</returns>
         public static string ReadNamedStreamContentSafe(string path, string streamName)
         {
-            var handle = CreateFileW(path + ":" + streamName, GENERIC_READ, FILE_SHARE_RW_DELETE, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, IntPtr.Zero);
+            var handle = CreateFileW(path + ":" + streamName, GENERIC_READ, FILE_SHARE_RW_DELETE,
+                IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, IntPtr.Zero);
             if (handle == new IntPtr(-1))
             {
                 return null;

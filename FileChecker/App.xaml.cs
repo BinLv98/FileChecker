@@ -29,7 +29,8 @@ namespace FileChecker
             // 情形 1：参数非法 —— 弹出错误对话框后以退出码 2 结束
             if (options.Error != null)
             {
-                MessageBox.Show(options.Error + "\r\n\r\n" + CommandLine.Usage, Localization.T("app.badArgsTitle"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                MessageBox.Show(options.Error + "\r\n\r\n" + CommandLine.Usage, Localization.T("app.badArgsTitle"),
+                    MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 Environment.ExitCode = 2;
                 Shutdown();
                 return;

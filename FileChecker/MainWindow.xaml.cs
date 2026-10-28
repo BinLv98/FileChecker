@@ -30,6 +30,8 @@ namespace FileChecker
     /// </summary>
     public partial class MainWindow
     {
+        #region 字段与状态
+
         /// <summary>列表控件的数据源（可观察集合，增删会自动刷新界面）。</summary>
         private readonly ObservableCollection<FileItem> _items = new();
 
@@ -96,6 +98,10 @@ namespace FileChecker
         /// </summary>
         private bool Busy => _running || _hashing;
 
+        #endregion
+
+        #region 构造与初始化
+
         /// <summary>
         /// 构造函数：初始化界面组件、事件与初始状态。
         /// </summary>
@@ -126,6 +132,10 @@ namespace FileChecker
             // 首次应用语言文案
             ApplyLanguage();
         }
+
+        #endregion
+
+        #region 界面语言与文案
 
         /// <summary>
         /// 把当前语言的文案应用到所有界面元素（按钮、列头、菜单、提示等）。
@@ -165,7 +175,12 @@ namespace FileChecker
                     gridView.Columns[4].Header = Localization.T("col.md5");
                 }
                 // 右键菜单项文案（顺序与 XAML 中 MenuItem 顺序一致）
-                var menuKeys = new[] { "menu.removeMark", "menu.detail", "menu.rescan", "menu.openFolder", "menu.copyPath", "menu.copySha", "menu.copyMd5", "menu.copyBoth", "menu.remove", "menu.clear" };
+                var menuKeys = new[]
+                {
+                    "menu.removeMark", "menu.detail", "menu.rescan", "menu.openFolder",
+                    "menu.copyPath", "menu.copySha", "menu.copyMd5", "menu.copyBoth",
+                    "menu.remove", "menu.clear"
+                };
                 var menuIndex = 0;
                 if (FileList.ContextMenu != null)
                 {
@@ -210,6 +225,10 @@ namespace FileChecker
                 Localization.Set(LangCombo.SelectedIndex == 1 ? AppLanguage.English : AppLanguage.Chinese);
             }
         }
+
+        #endregion
+
+        #region 拖放与添加文件
 
         /// <summary>
         /// 拖拽进入：仅当空闲且有文件数据时允许"复制"效果，并高亮拖放区。
@@ -368,6 +387,10 @@ namespace FileChecker
             CountText.Text = _items.Count + " / " + _items.Count;
         }
 
+        #endregion
+
+        #region 文件列表操作
+
         /// <summary>“移除选中”：把选中的文件项从列表移除（不删除磁盘文件）。</summary>
         private void RemoveSelected_Click(object sender, RoutedEventArgs e)
         {
@@ -405,6 +428,10 @@ namespace FileChecker
             CountText.Text = _items.Count + " / " + _items.Count;
         }
 
+        #endregion
+
+        #region 去除网络标记任务
+
         /// <summary>“去除网络标记”（主按钮）：对列表全部文件启动去除标记任务。</summary>
         private void RemoveMarkBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -412,7 +439,8 @@ namespace FileChecker
             {
                 if (_items.Count == 0)
                 {
-                    System.Windows.MessageBox.Show(this, Localization.T("msg.noItems"), "FileChecker", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    System.Windows.MessageBox.Show(this, Localization.T("msg.noItems"), "FileChecker",
+                        MessageBoxButton.OK, MessageBoxImage.Asterisk);
                 }
                 else
                 {
@@ -633,7 +661,12 @@ namespace FileChecker
                 {
                     return Localization.F("msg.fatal", _fatal);
                 }
-                return _runCancelled ? Localization.F("msg.cancelSummary", removed + clean + failed, total, removed, clean, failed, total - removed - clean - failed) : Localization.F("msg.doneSummary", total, removed, clean, failed);
+                if (_runCancelled)
+                {
+                    return Localization.F("msg.cancelSummary", removed + clean + failed, total, removed, clean, failed,
+                        total - removed - clean - failed);
+                }
+                return Localization.F("msg.doneSummary", total, removed, clean, failed);
             });
             CountText.Text = removed + clean + failed + " / " + total;
             // 释放令牌源并复位忙碌状态
@@ -650,6 +683,10 @@ namespace FileChecker
                 RequestAdsScan(jobTargets);
             }
         }
+
+        #endregion
+
+        #region 附加数据流扫描
 
         /// <summary>
         /// 把一批文件项排队等待自动扫描（先标记为待扫描状态）。
@@ -715,7 +752,8 @@ namespace FileChecker
                         entry.Key.SetAds(entry.Value);
                     }
                 }), DispatcherPriority.Background);
-            }).ContinueWith(_ => _adsBusy = false, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
+            }).ContinueWith(_ => _adsBusy = false, CancellationToken.None, TaskContinuationOptions.None,
+                TaskScheduler.FromCurrentSynchronizationContext());
         }
 
         /// <summary>“重新读取文件标记”：对选中项（无选中则全部）重新排队扫描。</summary>
@@ -736,6 +774,10 @@ namespace FileChecker
                 }
             }
         }
+
+        #endregion
+
+        #region 哈希计算任务
 
         /// <summary>“计算 SHA256 / MD5”：对列表全部文件启动哈希计算任务。</summary>
         private void HashBtn_Click(object sender, RoutedEventArgs e)
@@ -869,7 +911,7 @@ namespace FileChecker
             return f =>
             {
                 // 换算为整数百分比
-                var pct = f >= 1.0 ? 100 : f <= 0.0 ? 0 : (int)Math.Floor(f * 100.0);
+                var pct = PercentOf(f);
                 // 节流：百分比变化且（到达 100% 或距上次超过 90ms）
                 if (pct > lastPct && (pct >= 100 || sw.ElapsedMilliseconds >= 90))
                 {
@@ -885,6 +927,20 @@ namespace FileChecker
                     }), DispatcherPriority.Background);
                 }
             };
+        }
+
+        /// <summary>把 0.0~1.0 的完成比例换算为 0~100 的整数百分比（边界夹取：≥1.0 记 100，≤0.0 记 0）。</summary>
+        private static int PercentOf(double f)
+        {
+            if (f >= 1.0)
+            {
+                return 100;
+            }
+            if (f <= 0.0)
+            {
+                return 0;
+            }
+            return (int)Math.Floor(f * 100.0);
         }
 
         /// <summary>
@@ -939,6 +995,10 @@ namespace FileChecker
             }
             UpdateBusyUi(busy: false);
         }
+
+        #endregion
+
+        #region 右键菜单与列表交互
 
         /// <summary>
         /// 右键“复制校验码”：根据菜单 Tag（sha256 / md5 / both）复制选中项的校验码。
@@ -1019,12 +1079,17 @@ namespace FileChecker
         private void FileList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             var element = e.OriginalSource as DependencyObject;
-            if (ItemsControl.ContainerFromElement(FileList, element!) is System.Windows.Controls.ListViewItem { IsSelected: false } listViewItem)
+            if (ItemsControl.ContainerFromElement(FileList, element!)
+                is System.Windows.Controls.ListViewItem { IsSelected: false } listViewItem)
             {
                 FileList.SelectedItems.Clear();
                 listViewItem.IsSelected = true;
             }
         }
+
+        #endregion
+
+        #region 界面状态与摘要栏
 
         /// <summary>
         /// 按忙碌状态统一启停所有操作按钮。
@@ -1083,6 +1148,10 @@ namespace FileChecker
             SummaryText.Text = render();
         }
 
+        #endregion
+
+        #region 列表右键操作
+
         /// <summary>右键“打开所在目录”：用资源管理器选中该文件。</summary>
         private void OpenFolder_Click(object sender, RoutedEventArgs e)
         {
@@ -1112,6 +1181,10 @@ namespace FileChecker
             }
         }
 
+        #endregion
+
+        #region 窗口事件
+
         /// <summary>
         /// 窗口关闭确认：忙碌时弹框询问是否退出，确认后先取消后台任务。
         /// </summary>
@@ -1124,7 +1197,8 @@ namespace FileChecker
             }
             var message = _running ? Localization.T("msg.closeRemove") : Localization.T("msg.closeHash");
             // 用户选择"否"：取消关闭
-            if (System.Windows.MessageBox.Show(this, message, "FileChecker", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (System.Windows.MessageBox.Show(this, message, "FileChecker",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
                 e.Cancel = true;
                 return;
@@ -1149,5 +1223,7 @@ namespace FileChecker
                 e.Handled = true;
             }
         }
+
+        #endregion
     }
 }
