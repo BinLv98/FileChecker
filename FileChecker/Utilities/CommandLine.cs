@@ -1,7 +1,7 @@
 using FileChecker.Data;
 using System;
 
-namespace FileChecker
+namespace FileChecker.Utilities
 {
     internal static class CommandLine
     {

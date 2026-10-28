@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FileChecker"
         mc:Ignorable="d"
-        Title="FileChecker V1.0" Height="800" Width="1280" MinHeight="540" MinWidth="1040"
+        Title="FileChecker V1.1" Height="800" Width="1280" MinHeight="540" MinWidth="1040"
         AllowDrop="True" Background="#EEF2F7" FontFamily="Microsoft YaHei UI, Segoe UI" FontSize="13"
         Foreground="#1F2937" WindowStartupLocation="CenterScreen" 
         Closing="Window_Closing" 
@@ -119,31 +119,88 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+
+        <!-- 第一行 -->
         <Grid Row="0" />
-        <Border Name="DropBorder" Grid.Row="1" Height="96" Margin="0,14,0,0" Background="#F0F6FF" BorderBrush="#9DC0FA" BorderThickness="1.5" CornerRadius="10" Cursor="Hand" MouseLeftButtonUp="DropBorder_MouseLeftButtonUp">
+
+        <!-- 第二行, 拖拽区域 -->
+        <Border Name="DropBorder" Grid.Row="1" Height="96" Margin="0,14,0,0" 
+                Background="#F0F6FF" BorderBrush="#9DC0FA" BorderThickness="1.5" 
+                CornerRadius="10" Cursor="Hand" 
+                MouseLeftButtonUp="DropBorder_MouseLeftButtonUp">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Name="DropTitle" HorizontalAlignment="Center" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Text="将文件或文件夹拖放到这里" />
-                <TextBlock Name="DropSub" Margin="0,6,0,0" HorizontalAlignment="Center" FontSize="12.5" Foreground="#5A6B85" Text="文件夹会被递归处理（可在下方取消勾选“包含子文件夹”）" />
+                <TextBlock Name="DropTitle" HorizontalAlignment="Center" 
+                           FontSize="17" FontWeight="SemiBold" 
+                           Foreground="{StaticResource AccentBrush}" 
+                           Text="将文件或文件夹拖放到这里" />
+                <TextBlock Name="DropSub" Margin="0,6,0,0" HorizontalAlignment="Center" 
+                           FontSize="12.5" Foreground="#5A6B85" 
+                           Text="文件夹会被递归处理（可在下方取消勾选“包含子文件夹”）" />
             </StackPanel>
         </Border>
+
+        <!-- 第三行, 功能区域 -->
         <Grid Row="2" Margin="0,12,0,0">
             <StackPanel Orientation="Horizontal">
-                <Button Name="AddFilesBtn" Content="添加文件…" Style="{StaticResource NeutralBtn}" Click="AddFiles_Click" />
-                <Button Name="AddFolderBtn" Margin="8,0,0,0" Content="添加文件夹…" Style="{StaticResource NeutralBtn}" Click="AddFolder_Click" />
-                <Button Name="RemoveBtn" Margin="8,0,0,0" Content="移除选中" Style="{StaticResource NeutralBtn}" Visibility="Collapsed" Click="RemoveSelected_Click" />
-                <Button Name="ClearBtn" Margin="8,0,0,0" Content="清空列表" Style="{StaticResource NeutralBtn}" Click="ClearList_Click" />
-                <Button Name="RescanBtn" Margin="8,0,0,0" Content="重新读取文件标记" Style="{StaticResource NeutralBtn}" Click="Rescan_Click" />
-                <Button Name="RemoveMarkBtn" Margin="8,0,0,0" Content="去除网络标记" Style="{StaticResource PrimaryBtn}" ToolTip="移除列表中所有文件带有的下载来源标记（如“来自网络”），解除打开文件时的“安全警告”" Click="RemoveMarkBtn_Click" />
-                <Button Name="HashBtn" Margin="8,0,0,0" Content="计算 SHA256 / MD5" Style="{StaticResource PrimaryBtn}" Click="HashBtn_Click" />
+                <!--添加文件-->
+                <Button Name="AddFilesBtn" Content="添加文件…" 
+                        Style="{StaticResource NeutralBtn}" 
+                        Click="AddFiles_Click" />
+
+                <!--添加文件夹-->
+                <Button Name="AddFolderBtn" Margin="8,0,0,0" Content="添加文件夹…" 
+                        Style="{StaticResource NeutralBtn}" 
+                        Click="AddFolder_Click" />
+
+                <!--移除选中-->
+                <Button Name="RemoveBtn" Margin="8,0,0,0" Content="移除选中" 
+                        Style="{StaticResource NeutralBtn}" Visibility="Collapsed" 
+                        Click="RemoveSelected_Click" />
+
+                <!--清空列表-->
+                <Button Name="ClearBtn" Margin="8,0,0,0" Content="清空列表" 
+                        Style="{StaticResource NeutralBtn}" 
+                        Click="ClearList_Click" />
+
+                <!--重新读取文件标记-->
+                <Button Name="RescanBtn" Margin="8,0,0,0" Content="重新读取文件标记" 
+                        Style="{StaticResource NeutralBtn}" 
+                        Click="Rescan_Click" />
+
+                <!--去除网络标记-->
+                <Button Name="RemoveMarkBtn" Margin="8,0,0,0" Content="去除网络标记" 
+                        Style="{StaticResource PrimaryBtn}" 
+                        ToolTip="移除列表中所有文件带有的下载来源标记（如“来自网络”），解除打开文件时的“安全警告”" 
+                        Click="RemoveMarkBtn_Click" />
+
+                <!--计算Hash值-->
+                <Button Name="HashBtn" Margin="8,0,0,0" Content="计算 SHA256 / MD5" 
+                        Style="{StaticResource PrimaryBtn}" 
+                        Click="HashBtn_Click" />
+
+                <!--包含子文件夹-->
                 <CheckBox Name="RecursiveCheck" Margin="18,0,0,0" VerticalAlignment="Center" Content="包含子文件夹" IsChecked="True" />
+
+                <!--线程数-->
                 <TextBlock Name="ThreadsLabel" Margin="18,0,6,0" VerticalAlignment="Center" Foreground="#475467" Text="计算线程数" />
-                <ComboBox Name="HashThreadCombo" Width="64" Height="30" VerticalAlignment="Center" VerticalContentAlignment="Center" ToolTip="计算 SHA256 / MD5 时同时处理的文件数（1～10，默认为 5）" />
+                <ComboBox Name="HashThreadCombo" Width="64" Height="30" 
+                          VerticalAlignment="Center" VerticalContentAlignment="Center" 
+                          ToolTip="计算 SHA256 / MD5 时同时处理的文件数（1～10，默认为 5）" />
             </StackPanel>
         </Grid>
+
+        <!-- 第四行, 文件列表区域 -->
         <Grid Row="3" Margin="0,12,0,0">
             <Border Background="#FFFFFFFF" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8">
                 <Grid>
-                    <ListView Name="FileList" Margin="2" Background="#00FFFFFF" BorderThickness="0" Cursor="" KeyboardNavigation.TabNavigation="Once" ScrollViewer.HorizontalScrollBarVisibility="Auto" SelectionMode="Extended" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Standard" MouseDoubleClick="FileList_MouseDoubleClick" PreviewMouseRightButtonDown="FileList_PreviewMouseRightButtonDown">
+                    <ListView Name="FileList" Margin="2" Background="#00FFFFFF" BorderThickness="0" 
+                              Cursor="" KeyboardNavigation.TabNavigation="Once" 
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto" 
+                              SelectionMode="Extended" 
+                              VirtualizingStackPanel.IsVirtualizing="True" 
+                              VirtualizingStackPanel.VirtualizationMode="Standard" 
+                              MouseDoubleClick="FileList_MouseDoubleClick" 
+                              PreviewMouseRightButtonDown="FileList_PreviewMouseRightButtonDown">
                         <FrameworkElement.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="去除选中项的网络标记" Click="RemoveMarkSelected_Click" />
@@ -171,29 +228,45 @@
                         </ItemsControl.ItemContainerStyle>
                         <ListView.View>
                             <GridView AllowsColumnReorder="False">
+                                <!--文件路径列-->
                                 <GridViewColumn Width="350" Header="文件路径">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock VerticalAlignment="Center" FontSize="12.5" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Text="{Binding Path}" />
+                                            <TextBlock VerticalAlignment="Center" FontSize="12.5" 
+                                                       TextTrimming="CharacterEllipsis" TextWrapping="Wrap" 
+                                                       Text="{Binding Path}" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
+
+                                <!--文件标记列-->
                                 <GridViewColumn Width="90" Header="文件标记">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Foreground="{Binding AdsForeground}" Text="{Binding AdsText}" />
+                                            <TextBlock VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold" 
+                                                       TextTrimming="CharacterEllipsis" TextWrapping="Wrap" 
+                                                       Foreground="{Binding AdsForeground}" Text="{Binding AdsText}" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
+
+                                <!--进度列-->
                                 <GridViewColumn Width="100" Header="进度">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <Grid VerticalAlignment="Center">
-                                                <StackPanel Name="ActiveProgress" HorizontalAlignment="Left" Orientation="Horizontal" Visibility="Collapsed">
-                                                    <ProgressBar Width="88" Height="7" Margin="0,0,6,0" Maximum="100" Minimum="0" Style="{StaticResource RoundProgress}" Value="{Binding HashPercent, Mode=OneWay}" />
-                                                    <TextBlock VerticalAlignment="Center" FontSize="11.5" FontWeight="SemiBold" Foreground="#2E6BE6" Text="{Binding HashPercentText}" />
+                                                <StackPanel Name="ActiveProgress" HorizontalAlignment="Left" 
+                                                            Orientation="Horizontal" Visibility="Collapsed">
+                                                    <ProgressBar Width="88" Height="7" Margin="0,0,6,0" 
+                                                                 Maximum="100" Minimum="0" 
+                                                                 Style="{StaticResource RoundProgress}" 
+                                                                 Value="{Binding HashPercent, Mode=OneWay}" />
+                                                    <TextBlock VerticalAlignment="Center" FontSize="11.5" 
+                                                               FontWeight="SemiBold" Foreground="#2E6BE6" 
+                                                               Text="{Binding HashPercentText}" />
                                                 </StackPanel>
-                                                <TextBlock Name="IdleMark" VerticalAlignment="Center" Foreground="#98A2B3" Text="—" />
+                                                <TextBlock Name="IdleMark" VerticalAlignment="Center" 
+                                                           Foreground="#98A2B3" Text="—" />
                                             </Grid>
                                             <DataTemplate.Triggers>
                                                 <DataTrigger Value="Computing" Binding="{Binding HashStage}">
@@ -204,50 +277,82 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
+
+                                <!--SHA256-->
                                 <GridViewColumn Width="430" Header="SHA256">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="11.5" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Foreground="{Binding Sha256Foreground}" Text="{Binding Sha256}" />
+                                            <TextBlock VerticalAlignment="Center" FontFamily="Consolas" 
+                                                       FontSize="11.5" TextTrimming="CharacterEllipsis" 
+                                                       TextWrapping="Wrap" Foreground="{Binding Sha256Foreground}" 
+                                                       Text="{Binding Sha256}" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
+
+                                <!--MD5-->
                                 <GridViewColumn Width="240" Header="MD5">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="11.5" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Foreground="{Binding Md5Foreground}" Text="{Binding Md5}" />
+                                            <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="11.5" 
+                                                       TextTrimming="CharacterEllipsis" TextWrapping="Wrap"
+                                                       Foreground="{Binding Md5Foreground}" 
+                                                       Text="{Binding Md5}" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
                             </GridView>
                         </ListView.View>
                     </ListView>
-                    <StackPanel Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
-                        <TextBlock Name="EmptyTitle" HorizontalAlignment="Center" FontSize="15" Foreground="#98A2B3" Text="列表为空" />
-                        <TextBlock Name="EmptySub" Margin="0,6,0,0" HorizontalAlignment="Center" FontSize="12.5" Foreground="#B0BAC9" Text="点击“添加文件 / 添加文件夹”，或将文件、文件夹拖放到上方区域" />
+                    <StackPanel Name="EmptyHint" HorizontalAlignment="Center" 
+                                VerticalAlignment="Center" IsHitTestVisible="False">
+                        <TextBlock Name="EmptyTitle" HorizontalAlignment="Center" 
+                                   FontSize="15" Foreground="#98A2B3" 
+                                   Text="列表为空" />
+                        <TextBlock Name="EmptySub" Margin="0,6,0,0" HorizontalAlignment="Center" 
+                                   FontSize="12.5" Foreground="#B0BAC9" 
+                                   Text="点击“添加文件 / 添加文件夹”，或将文件、文件夹拖放到上方区域" />
                     </StackPanel>
                 </Grid>
             </Border>
         </Grid>
+
+        <!-- 第五行, 进度区域 -->
         <Grid Row="4" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+
+            <!--第一列, 进度-->
             <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
                 <TextBlock Name="SummaryText" FontWeight="SemiBold" Foreground="#475467" Text="" TextTrimming="CharacterEllipsis" />
+
+                <!--计算进度-->
                 <Grid Margin="0,8,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <ProgressBar Name="Progress" Grid.Column="0" VerticalAlignment="Center" Maximum="100" Minimum="0" Style="{StaticResource RoundProgress}" />
-                    <TextBlock Name="CountText" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="#667085" Text="0 / 0" />
+                    <ProgressBar Name="Progress" Grid.Column="0" VerticalAlignment="Center" 
+                                 Maximum="100" Minimum="0" 
+                                 Style="{StaticResource RoundProgress}" />
+                    <TextBlock Name="CountText" Grid.Column="1" Margin="12,0,0,0" 
+                               VerticalAlignment="Center" Foreground="#667085" 
+                               Text="0 / 0" />
                 </Grid>
             </StackPanel>
+
+            <!--第二列, 语言选择和取消按钮-->
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
-                <TextBlock Name="LangLabel" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="#475467" Text="界面语言" />
-                <ComboBox Name="LangCombo" Width="96" Height="30" Margin="0,0,14,0" VerticalAlignment="Center" VerticalContentAlignment="Center" SelectionChanged="LangCombo_SelectionChanged" />
-                <Button Name="CancelBtn" Content="取消" IsEnabled="False" Style="{StaticResource NeutralBtn}" Click="Cancel_Click" />
+                <TextBlock Name="LangLabel" Margin="0,0,6,0" VerticalAlignment="Center" 
+                           Foreground="#475467" Text="界面语言" />
+                <ComboBox Name="LangCombo" Width="96" Height="30" Margin="0,0,14,0" 
+                          VerticalAlignment="Center" VerticalContentAlignment="Center" 
+                          SelectionChanged="LangCombo_SelectionChanged" />
+                <Button Name="CancelBtn" Content="取消" IsEnabled="False" 
+                        Style="{StaticResource NeutralBtn}" 
+                        Click="Cancel_Click" />
             </StackPanel>
         </Grid>
     </Grid>

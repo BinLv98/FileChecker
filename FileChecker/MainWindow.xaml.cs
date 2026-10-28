@@ -449,9 +449,9 @@ namespace FileChecker
             var num = 0;
             while (num++ < 5000 && _queue.TryDequeue(out var result))
             {
-                if (_map.TryGetValue(result._path, out var value))
+                if (_map.TryGetValue(result.Path, out var value))
                 {
-                    value.Complete(result._result, result._error);
+                    value.Complete(result.Result, result.Error);
                 }
             }
             var num2 = Interlocked.Read(ref _finished);
@@ -476,9 +476,9 @@ namespace FileChecker
 
             while (_queue.TryDequeue(out var result))
             {
-                if (_map.TryGetValue(result._path, out var value))
+                if (_map.TryGetValue(result.Path, out var value))
                 {
-                    value.Complete(result._result, result._error);
+                    value.Complete(result.Result, result.Error);
                 }
             }
             var jobTargets = _jobTargets;
@@ -579,7 +579,7 @@ namespace FileChecker
                     {
                         value = new AdsScanResult
                         {
-                            _error = ex.Message
+                            Error = ex.Message
                         };
                     }
                     results.Add(new KeyValuePair<FileItem, AdsScanResult>(fileItem, value));
@@ -660,14 +660,14 @@ namespace FileChecker
                     {
                         var reportProgress = CreateHashReporter(it, disp);
                         var fileHashResult = FileHasher.Compute(it.Path, token, reportProgress);
-                        if (!fileHashResult._cancelled)
+                        if (!fileHashResult.Cancelled)
                         {
                             TxtHashCompareResult txtHashCompareResult = null;
-                            if (fileHashResult._ok)
+                            if (fileHashResult.Ok)
                             {
                                 try
                                 {
-                                    txtHashCompareResult = HashTxtReader.Compare(it.Path, fileHashResult._md5, fileHashResult._sha256);
+                                    txtHashCompareResult = HashTxtReader.Compare(it.Path, fileHashResult.MD5, fileHashResult.SHA256);
                                 }
                                 catch
                                 {
@@ -679,9 +679,9 @@ namespace FileChecker
                             disp.BeginInvoke((Action)(() =>
                             {
                                 it.ResetHashProgress();
-                                if (r._ok)
+                                if (r.Ok)
                                 {
-                                    it.SetHashResult(r._md5, r._sha256);
+                                    it.SetHashResult(r.MD5, r.SHA256);
                                     if (c != null)
                                     {
                                         it.SetTxtComparison(c);
@@ -689,7 +689,7 @@ namespace FileChecker
                                 }
                                 else
                                 {
-                                    it.SetHashError(r._error);
+                                    it.SetHashError(r.Error);
                                 }
                                 var num = completed;
                                 completed = num + 1;

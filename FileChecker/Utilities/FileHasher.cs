@@ -16,7 +16,7 @@ namespace FileChecker.Utilities
             {
                 if (!File.Exists(path))
                 {
-                    fileHashResult._error = Localization.T("file.missing");
+                    fileHashResult.Error = Localization.T("file.missing");
                     return fileHashResult;
                 }
                 using (var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1048576, FileOptions.SequentialScan))
@@ -39,9 +39,9 @@ namespace FileChecker.Utilities
                             }
                             mD.TransformFinalBlock(array, 0, 0);
                             sHa.TransformFinalBlock(array, 0, 0);
-                            fileHashResult._md5 = ToHex(mD.Hash);
-                            fileHashResult._sha256 = ToHex(sHa.Hash);
-                            fileHashResult._ok = true;
+                            fileHashResult.MD5 = ToHex(mD.Hash);
+                            fileHashResult.SHA256 = ToHex(sHa.Hash);
+                            fileHashResult.Ok = true;
                         }
                     }
                 }
@@ -53,12 +53,12 @@ namespace FileChecker.Utilities
             }
             catch (OperationCanceledException)
             {
-                fileHashResult._cancelled = true;
+                fileHashResult.Cancelled = true;
                 return fileHashResult;
             }
             catch (Exception ex2)
             {
-                fileHashResult._error = ex2.Message;
+                fileHashResult.Error = ex2.Message;
                 return fileHashResult;
             }
         }

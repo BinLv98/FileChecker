@@ -23,8 +23,8 @@ namespace FileChecker.Utilities
             {
                 return txtHashCompareResult;
             }
-            txtHashCompareResult._txtPath = text;
-            txtHashCompareResult._foundTxt = true;
+            txtHashCompareResult.TxtPath = text;
+            txtHashCompareResult.FoundTxt = true;
             string content;
             try
             {
@@ -32,14 +32,14 @@ namespace FileChecker.Utilities
             }
             catch
             {
-                txtHashCompareResult._readFailed = true;
+                txtHashCompareResult.ReadFailed = true;
                 return txtHashCompareResult;
             }
             Parse(content, out var md6, out var sha257);
-            txtHashCompareResult._md5Ref = md6;
-            txtHashCompareResult._sha256Ref = sha257;
-            txtHashCompareResult._md5State = CompareState(md6, md5);
-            txtHashCompareResult._sha256State = CompareState(sha257, sha256);
+            txtHashCompareResult.MD5Ref = md6;
+            txtHashCompareResult.SHA256Ref = sha257;
+            txtHashCompareResult.MD5State = CompareState(md6, md5);
+            txtHashCompareResult.SHA256State = CompareState(sha257, sha256);
             return txtHashCompareResult;
         }
 

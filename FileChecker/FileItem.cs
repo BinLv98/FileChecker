@@ -112,11 +112,11 @@ namespace FileChecker
                 {
                     return _readingBrush;
                 }
-                if (!_adsResult._ok)
+                if (!_adsResult.Ok)
                 {
                     return _errorBrush;
                 }
-                if (_adsResult._hasZone)
+                if (_adsResult.HasZone)
                 {
                     return _zoneBrush;
                 }
@@ -166,17 +166,17 @@ namespace FileChecker
                 {
                     list.Add("MD5: " + _md5Raw);
                     list.Add("SHA256: " + _sha256Raw);
-                    if (_txtCompare is { _foundTxt: true })
+                    if (_txtCompare is { FoundTxt: true })
                     {
-                        list.Add(Localization.T("tip.refTxt") + _txtCompare._txtPath);
-                        if (_txtCompare._readFailed)
+                        list.Add(Localization.T("tip.refTxt") + _txtCompare.TxtPath);
+                        if (_txtCompare.ReadFailed)
                         {
                             list.Add(Localization.T("tip.refTxtFail"));
                         }
                         else
                         {
-                            list.Add(Localization.T("tip.md5Cmp") + DescribeState(_txtCompare._md5State, _txtCompare._md5Ref, "MD5"));
-                            list.Add(Localization.T("tip.shaCmp") + DescribeState(_txtCompare._sha256State, _txtCompare._sha256Ref, "SHA256"));
+                            list.Add(Localization.T("tip.md5Cmp") + DescribeState(_txtCompare.MD5State, _txtCompare.MD5Ref, "MD5"));
+                            list.Add(Localization.T("tip.shaCmp") + DescribeState(_txtCompare.SHA256State, _txtCompare.SHA256Ref, "SHA256"));
                         }
                     }
                 }
@@ -384,8 +384,8 @@ namespace FileChecker
         private void UpdateCompareForeground()
         {
             var txtCompare = _txtCompare;
-            Md5Foreground = ForegroundFor(txtCompare?._md5State ?? HashMatchState.NoReference);
-            Sha256Foreground = ForegroundFor(txtCompare?._sha256State ?? HashMatchState.NoReference);
+            Md5Foreground = ForegroundFor(txtCompare?.MD5State ?? HashMatchState.NoReference);
+            Sha256Foreground = ForegroundFor(txtCompare?.SHA256State ?? HashMatchState.NoReference);
         }
 
         private static Brush ForegroundFor(HashMatchState state)

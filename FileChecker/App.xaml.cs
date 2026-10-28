@@ -20,7 +20,7 @@ namespace FileChecker
             var cliOptions = CommandLine.Parse(e.Args);
             if (cliOptions.Error != null)
             {
-                MessageBox.Show(cliOptions.Error + "\r\n\r\n" + CommandLine.Usage, FileChecker.Localization.T("app.badArgsTitle"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                MessageBox.Show(cliOptions.Error + "\r\n\r\n" + CommandLine.Usage, Localization.T("app.badArgsTitle"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 Environment.ExitCode = 2;
                 Shutdown();
                 return;
@@ -40,7 +40,6 @@ namespace FileChecker
             }
 
             base.OnStartup(e);
-
         }
 
         private static int RunSilent(CliOptions opts)
@@ -135,5 +134,4 @@ namespace FileChecker
             return cleanStats.Failed + list.Count + inaccessible > 0 ? 1 : 0;
         }
     }
-
 }

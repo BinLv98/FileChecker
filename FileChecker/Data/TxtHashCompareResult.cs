@@ -4,18 +4,18 @@ namespace FileChecker.Data
 {
     public sealed class TxtHashCompareResult
     {
-        public string _txtPath;
+        public string TxtPath { get; set; }
 
-        public bool _foundTxt;
+        public bool FoundTxt { get; set; }
 
-        public bool _readFailed;
+        public bool ReadFailed { get; set; }
 
-        public string _md5Ref;
+        public string MD5Ref { get; set; }
 
-        public string _sha256Ref;
+        public string SHA256Ref { get; set; }
 
-        public HashMatchState _md5State;
+        public HashMatchState MD5State { get; set; }
 
-        public HashMatchState _sha256State;
+        public HashMatchState SHA256State { get; set; }
     }
 }

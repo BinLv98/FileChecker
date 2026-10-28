@@ -133,7 +133,7 @@ namespace FileChecker
         private string BuildContentText()
         {
             var adsResult = _item.AdsResult;
-            if (adsResult == null || !adsResult._ok)
+            if (adsResult == null || !adsResult.Ok)
             {
                 string text;
                 if (adsResult == null)
@@ -142,7 +142,7 @@ namespace FileChecker
                 }
                 else
                 {
-                    text = string.IsNullOrEmpty(adsResult._error) ? Localization.T("item.unknown") : adsResult._error;
+                    text = string.IsNullOrEmpty(adsResult.Error) ? Localization.T("item.unknown") : adsResult.Error;
                 }
                 return Localization.F("detail.unreadable", text);
             }
@@ -152,11 +152,11 @@ namespace FileChecker
             }
             var stringBuilder = new StringBuilder();
             var num = 0;
-            foreach (var stream in adsResult._streams)
+            foreach (var stream in adsResult.Streams)
             {
                 if (!stream.IsMainData)
                 {
-                    var text2 = AdsCleaner.ReadNamedStreamContentSafe(adsResult._path, stream.Name);
+                    var text2 = AdsCleaner.ReadNamedStreamContentSafe(adsResult.Path, stream.Name);
                     if (text2 == null)
                     {
                         text2 = Localization.T("detail.streamUnreadable");
@@ -202,8 +202,8 @@ namespace FileChecker
                 {
                     ads = new AdsScanResult
                     {
-                        _path = _item.Path,
-                        _error = ex2.Message
+                        Path = _item.Path,
+                        Error = ex2.Message
                     };
                 }
                 _item.SetAds(ads);

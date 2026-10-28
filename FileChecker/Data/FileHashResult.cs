@@ -2,14 +2,14 @@
 {
     public sealed class FileHashResult
     {
-        public bool _ok;
+        public bool Ok { get; set; }
 
-        public bool _cancelled;
+        public bool Cancelled { get; set; }
 
-        public string _md5;
+        public string MD5 { get; set; }
 
-        public string _sha256;
+        public string SHA256 { get; set; }
 
-        public string _error;
+        public string Error { get; set; }
     }
 }

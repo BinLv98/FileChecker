@@ -4,10 +4,10 @@ namespace FileChecker.Data
 {
     internal sealed class FileReport
     {
-        public string _path;
+        public string Path { get; set; }
 
-        public AdsRemoveResult _result;
+        public AdsRemoveResult Result { get; set; }
 
-        public string _error;
+        public string Error { get; set; }
     }
 }

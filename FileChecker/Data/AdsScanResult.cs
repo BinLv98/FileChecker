@@ -4,30 +4,30 @@ namespace FileChecker.Data
 {
     public sealed class AdsScanResult
     {
-        public string _path;
+        public string Path { get; set; }
 
-        public bool _ok;
+        public bool Ok { get; set; }
 
-        public string _error;
+        public string Error { get; set; }
 
-        public List<AdsStreamInfo> _streams = new();
+        public List<AdsStreamInfo> Streams { get; set; } = new();
 
-        public bool _hasZone;
+        public bool HasZone { get; set; }
 
-        public long _zoneLength;
+        public long ZoneLength { get; set; }
 
-        public string _zoneContent;
+        public string ZoneContent { get; set; }
 
-        public int _zoneId = -1;
+        public int ZoneId { get; set; } = -1;
 
-        public bool _zoneHasExtraData;
+        public bool ZoneHasExtraData { get; set; }
 
         public int NamedStreamCount
         {
             get
             {
                 var num = 0;
-                foreach (var stream in _streams)
+                foreach (var stream in Streams)
                 {
                     if (!stream.IsMainData)
                     {
@@ -38,13 +38,13 @@ namespace FileChecker.Data
             }
         }
 
-        public int OtherNamedCount => NamedStreamCount - (_hasZone ? 1 : 0);
+        public int OtherNamedCount => NamedStreamCount - (HasZone ? 1 : 0);
 
         public bool HasExtraInfo
         {
             get
             {
-                if (!_hasZone || !_zoneHasExtraData)
+                if (!HasZone || !ZoneHasExtraData)
                 {
                     return OtherNamedCount > 0;
                 }
@@ -56,11 +56,11 @@ namespace FileChecker.Data
         {
             get
             {
-                if (!_hasZone || _zoneId < 0 || _zoneId > 4)
+                if (!HasZone || ZoneId < 0 || ZoneId > 4)
                 {
                     return null;
                 }
-                return Localization.T("zone." + _zoneId) + "(" + _zoneId + ")";
+                return Localization.T("zone." + ZoneId) + "(" + ZoneId + ")";
             }
         }
 
@@ -68,7 +68,7 @@ namespace FileChecker.Data
         {
             get
             {
-                if (!_ok)
+                if (!Ok)
                 {
                     return Localization.T("item.readFailed");
                 }
@@ -81,7 +81,7 @@ namespace FileChecker.Data
                     }
                     return zoneLabel + "+";
                 }
-                if (_hasZone || NamedStreamCount > 0)
+                if (HasZone || NamedStreamCount > 0)
                 {
                     return Localization.T("ads.other");
                 }
@@ -91,9 +91,9 @@ namespace FileChecker.Data
 
         public string ShortInfo()
         {
-            if (!_ok)
+            if (!Ok)
             {
-                return Localization.F("item.errPrefix", string.IsNullOrEmpty(_error) ? Localization.T("item.unknown") : _error);
+                return Localization.F("item.errPrefix", string.IsNullOrEmpty(Error) ? Localization.T("item.unknown") : Error);
             }
             var zoneLabel = ZoneLabel;
             if (zoneLabel != null)
@@ -105,7 +105,7 @@ namespace FileChecker.Data
                 }
                 return text;
             }
-            if (_hasZone)
+            if (HasZone)
             {
                 return Localization.T("info.unknownZone");
             }

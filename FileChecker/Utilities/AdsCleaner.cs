@@ -137,14 +137,14 @@ namespace FileChecker.Utilities
         {
             var adsScanResult = new AdsScanResult
             {
-                _path = path
+                Path = path
             };
             try
             {
                 var intPtr = FindFirstStreamW(path, 0, out var findStreamData, 0u);
                 if (intPtr == _invalidHandle)
                 {
-                    adsScanResult._error = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+                    adsScanResult.Error = new Win32Exception(Marshal.GetLastWin32Error()).Message;
                     return adsScanResult;
                 }
                 try
@@ -159,24 +159,24 @@ namespace FileChecker.Utilities
                 {
                     FindClose(intPtr);
                 }
-                adsScanResult._ok = true;
-                foreach (var stream in adsScanResult._streams)
+                adsScanResult.Ok = true;
+                foreach (var stream in adsScanResult.Streams)
                 {
                     if (!stream.IsMainData && string.Equals(stream.Name, "Zone.Identifier", StringComparison.OrdinalIgnoreCase))
                     {
-                        adsScanResult._hasZone = true;
-                        adsScanResult._zoneLength = stream.Length;
-                        adsScanResult._zoneContent = ReadZoneContentSafe(path);
-                        adsScanResult._zoneId = ParseZoneId(adsScanResult._zoneContent);
-                        adsScanResult._zoneHasExtraData = HasZoneExtraData(adsScanResult._zoneContent);
+                        adsScanResult.HasZone = true;
+                        adsScanResult.ZoneLength = stream.Length;
+                        adsScanResult.ZoneContent = ReadZoneContentSafe(path);
+                        adsScanResult.ZoneId = ParseZoneId(adsScanResult.ZoneContent);
+                        adsScanResult.ZoneHasExtraData = HasZoneExtraData(adsScanResult.ZoneContent);
                         break;
                     }
                 }
             }
             catch (Exception ex)
             {
-                adsScanResult._ok = false;
-                adsScanResult._error = ex.Message;
+                adsScanResult.Ok = false;
+                adsScanResult.Error = ex.Message;
             }
             return adsScanResult;
         }
@@ -184,7 +184,7 @@ namespace FileChecker.Utilities
         private static void AddStream(AdsScanResult r, Win32FindStreamData d)
         {
             var name = NormalizeStreamName(d.StreamName, out var isMain);
-            r._streams.Add(new AdsStreamInfo
+            r.Streams.Add(new AdsStreamInfo
             {
                 Name = name,
                 Length = d.StreamSize,
@@ -474,9 +474,9 @@ namespace FileChecker.Utilities
                 }
                 var obj = new FileReport
                 {
-                    _path = file,
-                    _result = adsRemoveResult,
-                    _error = error
+                    Path = file,
+                    Result = adsRemoveResult,
+                    Error = error
                 };
                 if (onCompleted != null)
                 {
