@@ -861,7 +861,7 @@ namespace FileChecker
                                 }
                             }
                             // 结果编组回 UI 线程应用到文件项并推进进度
-                            disp.BeginInvoke((Action)(() =>
+                            disp.BeginInvoke(() =>
                             {
                                 item.ResetHashProgress();
                                 if (hashResult.Ok)
@@ -880,7 +880,7 @@ namespace FileChecker
                                 completed++;
                                 Progress.Value = Math.Min(Progress.Maximum, completed);
                                 CountText.Text = completed + " / " + total;
-                            }), DispatcherPriority.Background);
+                            }, DispatcherPriority.Background);
                         }
                     });
                 }
