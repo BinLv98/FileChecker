@@ -481,6 +481,7 @@ namespace FileChecker
             {
                 return;
             }
+
             // 去重（按引用去重即可）并过滤空项
             var jobTargets = targets.Where(t => t != null).Distinct().ToList();
             if (jobTargets.Count == 0)
@@ -489,9 +490,8 @@ namespace FileChecker
             }
 
             // 清空上一次遗留的队列内容（如有）
-            while (_queue.TryDequeue(out _))
-            {
-            }
+            while (_queue.TryDequeue(out _)) { }
+
             // 初始化任务状态
             _cts = new CancellationTokenSource();
             _runDone = false;
@@ -505,6 +505,7 @@ namespace FileChecker
             {
                 item.MarkProcessing();
             }
+
             // 进度条与计数复位
             Progress.Maximum = jobTargets.Count;
             Progress.Value = 0.0;
